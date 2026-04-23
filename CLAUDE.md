@@ -6,7 +6,22 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **dispatch** is an internal high-volume email platform targeting 1M+ sends/day, built on AWS SES as the sole sending backbone. The platform is split into a **control plane we build** (contacts, campaigns, suppression, analytics, ML) and a **delivery plane we rent** (AWS SES). Single namespace — no multi-tenancy, no org scoping, no plan tiers.
 
+**Current repo state:** documentation/spec-first. No implementation code exists yet. The `Docs/` folder is the source of truth for what to build. Before writing any code, read the relevant sprint doc and the docs it references.
+
 ## Development Commands
+
+### Backend (Python)
+
+Bootstrap the virtual environment once per machine:
+
+```bash
+python -m venv .venv
+source .venv/bin/activate        # Windows: .\.venv\Scripts\Activate.ps1
+pip install --upgrade pip
+pip install -r requirements.txt
+```
+
+Always run backend commands from within the activated venv — never install packages globally.
 
 ```bash
 make dev                          # Start full local environment (Docker Compose)
@@ -23,6 +38,24 @@ celery -A apps.workers.events worker                  # Start event worker
 ```
 
 Coverage thresholds (95%+ enforced in CI) apply to: `libs/core/suppression/*`, `libs/core/circuit_breaker/*`, `libs/core/campaigns/service.py`, `apps/webhook/handlers.py`, `libs/ses_client/client.py`.
+
+### Frontend (Node / pnpm)
+
+The frontend lives in `apps/web/`. All frontend commands run from that directory.
+
+```bash
+pnpm install                      # Install dependencies
+pnpm dev                          # Start dev server (Turbopack)
+pnpm build                        # Production build
+pnpm lint                         # ESLint
+pnpm type-check                   # tsc --noEmit
+
+pnpm test                         # Vitest unit/component tests
+pnpm test src/app/(dashboard)/campaigns/**   # Run tests for one route
+pnpm run e2e                      # Playwright E2E suite (requires dev server)
+pnpm run e2e:headed               # Playwright with browser visible
+pnpm run a11y                     # axe-core accessibility sweep (tests/e2e/a11y_sweep.spec.ts)
+```
 
 ## Architecture
 
@@ -94,9 +127,37 @@ These must hold across all code paths (enforced by DB constraints and applicatio
 - `circuit_breaker_state = 'open'` pauses all sends in its scope
 - `audit_log` entries are never deleted (DB user has INSERT-only permission)
 
+## Frontend Architecture
+
+Frontend lives at `apps/web/` and uses Next.js 16 App Router. Key conventions:
+
+- **Server Components by default.** Add `"use client"` only where interactivity (state, effects, browser APIs) is required. Keep providers as deep as possible.
+- **Route groups:** `(auth)/` for login/MFA, `(dashboard)/` for all product pages. Groups don't appear in URLs.
+- **Colocation:** route-specific UI goes in `_components/`, route-specific data helpers go in `_lib/`. These private folders are not routable.
+- **Reusable primitives:** `src/components/ui/` (shadcn/ui generated), `src/components/shared/` (project-level shared), `src/components/charts/`.
+- **API layer:** `src/lib/api/server.ts` for server-side fetches, `src/lib/api/client.ts` for client-side. Never call the backend API directly from a Server Component without going through `src/lib/api/`.
+- **Import alias:** `@/*` maps to `src/*`. Use it consistently.
+- **Data fetching in routes:** sensitive/credentialed fetches happen in Server Components. Use `loading.tsx` and `error.tsx` at the route-segment level.
+- **`app/api/` route handlers** are only for frontend-adjacent concerns (health, session, BFF needs) — not duplicates of backend API routes.
+
 ## Testing Approach
 
 - Unit tests (70%): pure functions, validators, no DB/network
 - Integration tests (25%): real Postgres in Docker, real Redis; SES mocked at contract level
 - E2E tests (5%): full request through FastAPI → Celery → fake SES → webhook via LocalStack
 - Test DB wiped between each test via transaction rollback; no shared state
+
+## Sprint Rule Compliance
+
+Before writing any code, read:
+1. `Docs/backend_sprints/README.md` or `Docs/frontend_sprints/README.md` (sprint index)
+2. The active sprint doc (e.g., `Docs/backend_sprints/sprint_01_core_infrastructure.md`)
+3. The docs listed in the sprint's "Docs to Follow" section
+
+Sprint docs are binding constraints, not suggestions. If a requested change conflicts with a sprint rule, flag the conflict and propose a compliant path. Backend and frontend sprint numbers are aligned — they merge together.
+
+**Current scope:** Phase 1 (MVP, Sprints 00–11) + Phase 2 (Scale, Sprints 12–15). Sprints 16–21 (observability, ML, 1M/day hardening) are deferred.
+
+## Documentation Update Policy
+
+When changing architecture, stack versions, or behavior: update the relevant doc in `Docs/` and keep `README.md` docs index synchronized if a new document is added.
