@@ -1,6 +1,6 @@
 # Next.js Documentation Notes (Project-Oriented)
 
-This document summarizes official Next.js App Router guidance and maps it to Acmemail's frontend needs.
+This document summarizes official Next.js App Router guidance and maps it to dispatch's frontend needs.
 
 Last verified: **April 23, 2026**
 
@@ -88,7 +88,7 @@ For this project:
 - Docker deployment is fully supported.
 - Self-hosting supports App Router features, with caching/infra tuning considerations.
 
-## 11. Acmemail Frontend Conventions
+## 11. dispatch Frontend Conventions
 
 - Keep domain-heavy business logic in backend services, not client components.
 - Use Route Handlers as BFF endpoints only when needed; avoid duplicating backend API logic.

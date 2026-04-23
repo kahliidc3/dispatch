@@ -1,4 +1,4 @@
-# Acmemail — Code Architecture & Engineering Standards
+# dispatch — Code Architecture & Engineering Standards
 
 **Version:** 1.0
 **Audience:** Platform engineers building and maintaining the system
@@ -47,7 +47,7 @@ These govern every engineering decision. If a proposal violates one, it is rejec
 ## 3. Monorepo Layout
 
 ```
-acmemail/
+dispatch/
 ├── apps/
 │   ├── api/                    # FastAPI app (public + internal endpoints)
 │   ├── workers/                # Celery workers (send, event, import, warmup)
@@ -428,25 +428,25 @@ These code paths require 95%+ line coverage (enforced in CI):
 
 ```python
 # libs/core/errors.py
-class AcmemailError(Exception):
+class dispatchError(Exception):
     """Base — all custom errors inherit from this."""
 
-class ValidationError(AcmemailError):
+class ValidationError(dispatchError):
     """400-class. User input issue."""
 
-class AuthorizationError(AcmemailError):
+class AuthorizationError(dispatchError):
     """403. Actor not allowed."""
 
-class NotFoundError(AcmemailError):
+class NotFoundError(dispatchError):
     """404. Resource does not exist."""
 
-class ConflictError(AcmemailError):
+class ConflictError(dispatchError):
     """409. State machine violation."""
 
-class ExternalServiceError(AcmemailError):
+class ExternalServiceError(dispatchError):
     """502. Downstream (SES, DNS provider) failed."""
 
-class RateLimitedError(AcmemailError):
+class RateLimitedError(dispatchError):
     """429. Throttled by limiter."""
 ```
 

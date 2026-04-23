@@ -1,6 +1,6 @@
-# Backend Sprints — Acmemail (`dispatch`)
+# Backend Sprints — dispatch (`dispatch`)
 
-This folder defines the full backend delivery plan for Acmemail, broken into sequenced sprints.
+This folder defines the full backend delivery plan for dispatch, broken into sequenced sprints.
 
 One backend engineer executes these sprints on a dedicated branch per sprint (`backend/sprint-NN-<slug>`). A sprint is not complete until its **exit criteria** are met *and* its tests pass on the branch. After review, the branch merges back into the backend integration branch, then eventually into `main` alongside the matching frontend work.
 

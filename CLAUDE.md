@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**Acmemail** is an internal high-volume email platform targeting 1M+ sends/day, built on AWS SES as the sole sending backbone. The platform is split into a **control plane we build** (contacts, campaigns, suppression, analytics, ML) and a **delivery plane we rent** (AWS SES). Single namespace — no multi-tenancy, no org scoping, no plan tiers.
+**dispatch** is an internal high-volume email platform targeting 1M+ sends/day, built on AWS SES as the sole sending backbone. The platform is split into a **control plane we build** (contacts, campaigns, suppression, analytics, ML) and a **delivery plane we rent** (AWS SES). Single namespace — no multi-tenancy, no org scoping, no plan tiers.
 
 ## Development Commands
 
@@ -77,7 +77,7 @@ Seven gates split across two phases:
 
 ### Error Taxonomy
 
-All errors inherit from `AcmemailError` (`libs/core/errors.py`). Routes map typed domain exceptions to HTTP codes in a single global handler (`apps/api/exception_handlers.py`) — routes never catch domain exceptions themselves.
+All errors inherit from `dispatchError` (`libs/core/errors.py`). Routes map typed domain exceptions to HTTP codes in a single global handler (`apps/api/exception_handlers.py`) — routes never catch domain exceptions themselves.
 
 ### Configuration
 

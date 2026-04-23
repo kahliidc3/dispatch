@@ -13,16 +13,16 @@ VPC: 10.0.0.0/16
   DB subnets:      10.0.40.0/24, 10.0.50.0/24, 10.0.60.0/24 (RDS Multi-AZ)
 
 ECS clusters:
-  acmemail-api         (6 replicas)
-  acmemail-webhook     (4 replicas, scales with event volume)
-  acmemail-send        (20–60 replicas, scales with queue depth)
-  acmemail-events      (10 replicas)
-  acmemail-scheduler   (1 replica — Celery Beat)
+  dispatch-api         (6 replicas)
+  dispatch-webhook     (4 replicas, scales with event volume)
+  dispatch-send        (20–60 replicas, scales with queue depth)
+  dispatch-events      (10 replicas)
+  dispatch-scheduler   (1 replica — Celery Beat)
 
-RDS:         acmemail-prod-db      (db.r6g.2xlarge, Multi-AZ, 1 read replica)
-ElastiCache: acmemail-prod-redis   (cache.r6g.large, replicated)
-S3:          acmemail-prod-imports, acmemail-prod-inbound, acmemail-prod-events-archive
-SNS:         acmemail-prod-ses-events (topic, multiple subscriptions)
+RDS:         dispatch-prod-db      (db.r6g.2xlarge, Multi-AZ, 1 read replica)
+ElastiCache: dispatch-prod-redis   (cache.r6g.large, replicated)
+S3:          dispatch-prod-imports, dispatch-prod-inbound, dispatch-prod-events-archive
+SNS:         dispatch-prod-ses-events (topic, multiple subscriptions)
 SES:         production access, dedicated IP pool x3
 ```
 

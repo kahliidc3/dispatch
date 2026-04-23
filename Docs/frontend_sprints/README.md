@@ -1,6 +1,6 @@
-# Frontend Sprints — Acmemail (`dispatch`)
+# Frontend Sprints — dispatch (`dispatch`)
 
-This folder defines the full frontend delivery plan for Acmemail, broken into sequenced sprints that mirror the [backend sprints](../backend_sprints/README.md) one-for-one.
+This folder defines the full frontend delivery plan for dispatch, broken into sequenced sprints that mirror the [backend sprints](../backend_sprints/README.md) one-for-one.
 
 One frontend engineer executes these sprints on a dedicated branch per sprint (`frontend/sprint-NN-<slug>`). A sprint is not complete until its **exit criteria** are met *and* its tests pass on the branch. After review, the branch merges back into the frontend integration branch, then eventually into `main` alongside the matching backend sprint.
 

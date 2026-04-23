@@ -1,4 +1,4 @@
-# Acmemail — Operations Runbook
+# dispatch — Operations Runbook
 
 **Version:** 1.0
 **Audience:** On-call engineers, platform SRE
@@ -38,12 +38,12 @@
 
 **Key AWS resources (us-east-1):**
 
-- RDS Postgres cluster: `acmemail-prod-db` (primary + async replica for reads)
-- ElastiCache Redis: `acmemail-prod-redis`
+- RDS Postgres cluster: `dispatch-prod-db` (primary + async replica for reads)
+- ElastiCache Redis: `dispatch-prod-redis`
 - ECS services: `api`, `webhook`, `send-workers`, `event-workers`, `scheduler`
-- SES configuration sets: `acmemail-prod-outreach`, `acmemail-prod-transactional`
-- SNS topic: `acmemail-prod-ses-events`
-- S3 buckets: `acmemail-prod-imports`, `acmemail-prod-inbound-mail`, `acmemail-prod-event-archive`
+- SES configuration sets: `dispatch-prod-outreach`, `dispatch-prod-transactional`
+- SNS topic: `dispatch-prod-ses-events`
+- S3 buckets: `dispatch-prod-imports`, `dispatch-prod-inbound-mail`, `dispatch-prod-event-archive`
 
 ---
 
@@ -103,12 +103,12 @@
 1. Confirm the alert is real:
    ```bash
    # Datadog query
-   avg:acmemail.ses.complaint_rate{env:prod} by {account}
+   avg:dispatch.ses.complaint_rate{env:prod} by {account}
    ```
 2. Check the Circuit Breaker dashboard — has it auto-paused? If not, it's a bug.
 3. **Manual pause** if needed:
    ```bash
-   ./ops/scripts/pause_account.sh --account acmemail-prod --reason "SEV1 complaint spike"
+   ./ops/scripts/pause_account.sh --account dispatch-prod --reason "SEV1 complaint spike"
    ```
 4. Alert stakeholders in `#incidents` channel.
 
@@ -221,7 +221,7 @@
 
 1. Check webhook receiver health:
    ```bash
-   curl https://webhook.acmemail.internal/healthz
+   curl https://webhook.dispatch.internal/healthz
    ```
 2. Check event worker queue depth:
    ```bash
@@ -256,12 +256,12 @@
 
 1. RDS Multi-AZ should auto-failover in 60-120 seconds. Verify:
    ```bash
-   aws rds describe-db-instances --db-instance-identifier acmemail-prod-db
+   aws rds describe-db-instances --db-instance-identifier dispatch-prod-db
    ```
 2. Watch for the endpoint update. Applications using the RDS DNS name will reconnect automatically.
 3. If auto-failover fails:
    ```bash
-   aws rds failover-db-cluster --db-cluster-identifier acmemail-prod-db-cluster
+   aws rds failover-db-cluster --db-cluster-identifier dispatch-prod-db-cluster
    ```
 
 **During failover (services will error):**
@@ -375,11 +375,11 @@ alembic upgrade head
 
 ```bash
 # Request dedicated IP from SES
-aws sesv2 create-dedicated-ip-pool --pool-name acmemail-prod-pool-3
-aws sesv2 put-dedicated-ip-pool --ip-address NEW_IP --destination-pool acmemail-prod-pool-3
+aws sesv2 create-dedicated-ip-pool --pool-name dispatch-prod-pool-3
+aws sesv2 put-dedicated-ip-pool --ip-address NEW_IP --destination-pool dispatch-prod-pool-3
 
 # Register in our DB
-./ops/scripts/register_ip.sh --ip NEW_IP --pool acmemail-prod-pool-3
+./ops/scripts/register_ip.sh --ip NEW_IP --pool dispatch-prod-pool-3
 
 # Initiate warmup (7-day ramp)
 ./ops/scripts/start_ip_warmup.sh --ip NEW_IP

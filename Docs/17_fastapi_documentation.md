@@ -1,6 +1,6 @@
 # FastAPI Documentation Notes (Project-Oriented)
 
-This document summarizes the official FastAPI docs with a focus on how we should implement the API layer for Acmemail.
+This document summarizes the official FastAPI docs with a focus on how we should implement the API layer for dispatch.
 
 ## 1. Installation and Local Run
 
@@ -70,7 +70,7 @@ These patterns generate OpenAPI docs automatically and keep validation close to 
 - For Docker images, prefer building your own image from scratch for the app.
 - Do not rely on deprecated legacy base images.
 
-## 9. Acmemail-Specific Conventions
+## 9. dispatch-Specific Conventions
 
 - Routes should only orchestrate:
   1. input validation

@@ -1,6 +1,6 @@
-# Backend File Structure (Exact Blueprint for Acmemail)
+# Backend File Structure (Exact Blueprint for dispatch)
 
-This file defines the backend directory and file layout we should implement for Acmemail, aligned with FastAPI, SQLAlchemy async, Celery, Alembic, and Pydantic settings best practices.
+This file defines the backend directory and file layout we should implement for dispatch, aligned with FastAPI, SQLAlchemy async, Celery, Alembic, and Pydantic settings best practices.
 
 ---
 
@@ -15,7 +15,7 @@ This file defines the backend directory and file layout we should implement for 
 ## 2. Exact Backend Tree
 
 ```text
-acmemail/
+dispatch/
 ├── apps/
 │   ├── api/
 │   │   ├── __init__.py
@@ -302,7 +302,7 @@ acmemail/
 
 ## 8. Why This Matches What We Are Building
 
-- Mirrors Acmemail architecture docs: thin routes, service-layer business logic, idempotent workers, explicit guardrails.
+- Mirrors dispatch architecture docs: thin routes, service-layer business logic, idempotent workers, explicit guardrails.
 - Supports per-domain send pipeline and high-volume event ingestion.
 - Keeps domain logic reusable between API, workers, and webhook services.
 - Scales from MVP to 1M+/day without changing top-level backend layout.

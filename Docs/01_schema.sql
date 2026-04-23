@@ -1,5 +1,5 @@
 -- =============================================================================
--- ACMEMAIL — High-Volume Email Platform
+-- dispatch — High-Volume Email Platform
 -- PostgreSQL Schema v1.1
 -- =============================================================================
 -- Author: Platform Engineering

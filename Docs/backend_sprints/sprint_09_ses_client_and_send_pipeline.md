@@ -20,7 +20,7 @@ Implement `libs/ses_client/`, `libs/core/campaigns/` (messaging side), and `apps
 - [../10_delivery_pipeline.md](../10_delivery_pipeline.md) — `send_email()` pseudocode and seven gates
 - [../21_domain_model.md](../21_domain_model.md) §3.2 Campaign Aggregate, §5.2 Message Lifecycle
 - [../09_data_model.md](../09_data_model.md) — `campaigns`, `campaign_runs`, `send_batches`, `messages`
-- [../17_fastapi_documentation.md](../17_fastapi_documentation.md) §9 Acmemail-Specific Conventions (idempotency)
+- [../17_fastapi_documentation.md](../17_fastapi_documentation.md) §9 dispatch-Specific Conventions (idempotency)
 - [../../CLAUDE.md](../../CLAUDE.md) — "Idempotent send tasks" and "Status transitions are one-way"
 
 ## 4. Tasks

@@ -1,10 +1,10 @@
-# Acmemail
+# dispatch
 
-Acmemail is an internal high-volume email platform built to handle 1M+ sends per day. It is not a SaaS product and has no multi-tenancy — it is a single-namespace system built exclusively for internal use.
+dispatch is an internal high-volume email platform built to handle 1M+ sends per day. It is not a SaaS product and has no multi-tenancy — it is a single-namespace system built exclusively for internal use.
 
 ## What it is
 
-Acmemail is a purpose-built email delivery platform split into two planes:
+dispatch is a purpose-built email delivery platform split into two planes:
 
 - **Control plane** — everything we build: contact management, campaign authoring, list segmentation, suppression, analytics, and an ML layer for spam scoring and send-time optimization.
 - **Delivery plane** — everything we rent: AWS SES as the sole SMTP backbone.
@@ -72,6 +72,6 @@ Detailed design documentation lives in [Docs/](Docs/).
 | [16_rollout_plan.md](Docs/16_rollout_plan.md) | Phase-by-phase rollout plan |
 | [17_fastapi_documentation.md](Docs/17_fastapi_documentation.md) | FastAPI implementation guidance with official references |
 | [18_nextjs_documentation.md](Docs/18_nextjs_documentation.md) | Next.js App Router implementation guidance with official references |
-| [19_backend_file_structure.md](Docs/19_backend_file_structure.md) | Exact backend folder/file blueprint for Acmemail (best-practice aligned) |
-| [20_frontend_file_structure.md](Docs/20_frontend_file_structure.md) | Exact frontend folder/file blueprint for Acmemail (App Router best-practice aligned) |
+| [19_backend_file_structure.md](Docs/19_backend_file_structure.md) | Exact backend folder/file blueprint for dispatch (best-practice aligned) |
+| [20_frontend_file_structure.md](Docs/20_frontend_file_structure.md) | Exact frontend folder/file blueprint for dispatch (App Router best-practice aligned) |
 | [21_domain_model.md](Docs/21_domain_model.md) | Business domain model to align frontend, backend, and database design |

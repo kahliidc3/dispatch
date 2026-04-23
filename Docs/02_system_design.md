@@ -1,5 +1,5 @@
 # System Design Document
-## Acmemail · High-Volume Email Platform
+## dispatch · High-Volume Email Platform
 
 > Architecture, data model, delivery pipeline, operational guardrails, and ML services for a platform targeting 1M+ sends/day.
 
@@ -80,7 +80,7 @@
 
 ## 1. Executive Summary
 
-Acmemail is an internal email platform designed to send one million or more emails per day while maintaining inbox placement rates comparable to best-in-class ESPs. The platform is composed of two halves: a **control plane we build** (contacts, imports, segmentation, sender profiles, templates, campaigns, suppression, analytics, ML) and a **delivery plane we rent** (AWS SES as the sole sending backbone).
+dispatch is an internal email platform designed to send one million or more emails per day while maintaining inbox placement rates comparable to best-in-class ESPs. The platform is composed of two halves: a **control plane we build** (contacts, imports, segmentation, sender profiles, templates, campaigns, suppression, analytics, ML) and a **delivery plane we rent** (AWS SES as the sole sending backbone).
 
 The architectural thesis is that inbox placement at scale is not a configuration problem — it is an **operational discipline problem**. Authentication, clean infrastructure, and correct SMTP headers are necessary but insufficient. The decisive signals are recipient behavior, complaint rate, bounce rate, unsubscribe friction, rate pattern, and list quality. The system therefore invests heavily in automated throttling, immediate suppression, event-driven circuit breakers, and stop conditions that pause sending before account health degrades.
 
@@ -535,16 +535,16 @@ VPC: 10.0.0.0/16
   DB subnets:      10.0.40.0/24, 10.0.50.0/24, 10.0.60.0/24 (RDS Multi-AZ)
 
 ECS clusters:
-  acmemail-api         (6 replicas)
-  acmemail-webhook     (4 replicas, scales with event volume)
-  acmemail-send        (20–60 replicas, scales with queue depth)
-  acmemail-events      (10 replicas)
-  acmemail-scheduler   (1 replica — Celery Beat)
+  dispatch-api         (6 replicas)
+  dispatch-webhook     (4 replicas, scales with event volume)
+  dispatch-send        (20–60 replicas, scales with queue depth)
+  dispatch-events      (10 replicas)
+  dispatch-scheduler   (1 replica — Celery Beat)
 
-RDS:         acmemail-prod-db      (db.r6g.2xlarge, Multi-AZ, 1 read replica)
-ElastiCache: acmemail-prod-redis   (cache.r6g.large, replicated)
-S3:          acmemail-prod-imports, acmemail-prod-inbound, acmemail-prod-events-archive
-SNS:         acmemail-prod-ses-events (topic, multiple subscriptions)
+RDS:         dispatch-prod-db      (db.r6g.2xlarge, Multi-AZ, 1 read replica)
+ElastiCache: dispatch-prod-redis   (cache.r6g.large, replicated)
+S3:          dispatch-prod-imports, dispatch-prod-inbound, dispatch-prod-events-archive
+SNS:         dispatch-prod-ses-events (topic, multiple subscriptions)
 SES:         production access, dedicated IP pool x3
 ```
 

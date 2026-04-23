@@ -1,4 +1,4 @@
-# AWS Deployment & Configuration Guide — Acmemail (`dispatch`)
+# AWS Deployment & Configuration Guide — dispatch (`dispatch`)
 
 This document is a sequential execution guide. Read each section fully before doing anything in that section. By the end you will have a production-ready AWS environment that matches the architecture defined in [13_deployment_infrastructure.md](13_deployment_infrastructure.md).
 
@@ -817,7 +817,7 @@ Fill in the form:
 - **Mail type:** Marketing/Transactional
 - **Website URL:** your platform URL
 - **Use case description:** Write a clear description. Example:
-  > "Acmemail is an internal bulk-email platform used by our company to send marketing campaigns to our opt-in subscriber lists. We maintain a suppression list, implement hard-bounce and complaint processing, and comply with CAN-SPAM/GDPR. We expect to send approximately 10,000-75,000 emails per day initially."
+  > "dispatch is an internal bulk-email platform used by our company to send marketing campaigns to our opt-in subscriber lists. We maintain a suppression list, implement hard-bounce and complaint processing, and comply with CAN-SPAM/GDPR. We expect to send approximately 10,000-75,000 emails per day initially."
 - **Sending volume:** Your target for the next 24 hours and per month.
 
 AWS typically responds within 24 hours. **Do not attempt high-volume sending in sandbox.**

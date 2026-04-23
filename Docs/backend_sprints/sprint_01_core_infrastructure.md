@@ -43,7 +43,7 @@ Implement `libs/core/config.py`, `libs/core/db/`, `libs/core/errors.py`, `libs/c
 - [ ] Document migration workflow in `README_DEV.md`.
 
 ### 4.4 Error taxonomy
-- [ ] `libs/core/errors.py`: `AcmemailError` root + typed subclasses (`ValidationError`, `NotFoundError`, `ConflictError`, `PermissionDeniedError`, `RateLimitedError`, `CircuitOpenError`, etc.).
+- [ ] `libs/core/errors.py`: `dispatchError` root + typed subclasses (`ValidationError`, `NotFoundError`, `ConflictError`, `PermissionDeniedError`, `RateLimitedError`, `CircuitOpenError`, etc.).
 - [ ] `apps/api/exception_handlers.py`: one handler mapping each typed error to a stable HTTP status + machine-readable payload.
 
 ### 4.5 Logging & request context

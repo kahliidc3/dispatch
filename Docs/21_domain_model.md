@@ -8,7 +8,7 @@ This document explains the business domain model behind the project so frontend,
 
 ## 1. Domain Scope
 
-Acmemail is an internal bulk-email platform with:
+dispatch is an internal bulk-email platform with:
 
 - a **control plane** (contacts, campaigns, suppression, analytics, ML)
 - a **delivery plane** (AWS SES as the only send provider)

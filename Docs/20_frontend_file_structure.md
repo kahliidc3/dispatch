@@ -1,4 +1,4 @@
-# Frontend File Structure (Exact Blueprint for Acmemail)
+# Frontend File Structure (Exact Blueprint for dispatch)
 
 This defines the exact frontend structure for our Next.js 16 App Router application, aligned with official Next.js conventions and the stack we selected (TypeScript, Tailwind, shadcn/ui).
 
@@ -15,7 +15,7 @@ This defines the exact frontend structure for our Next.js 16 App Router applicat
 ## 2. Exact Frontend Tree
 
 ```text
-acmemail/
+dispatch/
 └── apps/
     └── web/
         ├── public/
@@ -175,7 +175,7 @@ acmemail/
 
 ---
 
-## 5. Mapping to Acmemail Product Areas
+## 5. Mapping to dispatch Product Areas
 
 - `(dashboard)/campaigns`: build, launch, monitor campaigns.
 - `(dashboard)/contacts`: browse/import/manage contacts and suppression exposure.
