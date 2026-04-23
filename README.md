@@ -38,7 +38,7 @@ The platform is designed around the assumption that deliverability is the produc
 | Event bus | AWS SNS |
 | ML | scikit-learn, XGBoost, DistilBERT |
 | Infrastructure | AWS ECS (Fargate), RDS, ElastiCache, Terraform |
-| Frontend | Next.js |
+| Frontend | Next.js 16 (App Router) |
 
 ## Scale targets
 
@@ -70,3 +70,8 @@ Detailed design documentation lives in [Docs/](Docs/).
 | [14_security.md](Docs/14_security.md) | Auth, encryption, secrets, compliance |
 | [15_observability.md](Docs/15_observability.md) | Metrics, logging, tracing, alerting |
 | [16_rollout_plan.md](Docs/16_rollout_plan.md) | Phase-by-phase rollout plan |
+| [17_fastapi_documentation.md](Docs/17_fastapi_documentation.md) | FastAPI implementation guidance with official references |
+| [18_nextjs_documentation.md](Docs/18_nextjs_documentation.md) | Next.js App Router implementation guidance with official references |
+| [19_backend_file_structure.md](Docs/19_backend_file_structure.md) | Exact backend folder/file blueprint for Acmemail (best-practice aligned) |
+| [20_frontend_file_structure.md](Docs/20_frontend_file_structure.md) | Exact frontend folder/file blueprint for Acmemail (App Router best-practice aligned) |
+| [21_domain_model.md](Docs/21_domain_model.md) | Business domain model to align frontend, backend, and database design |

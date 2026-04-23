@@ -36,7 +36,7 @@ These govern every engineering decision. If a proposal violates one, it is rejec
 | Event bus          | AWS SNS                             | SES-native event delivery                              |
 | IaC                | Terraform                           | DNS, SES, SNS, VPC, IAM                                |
 | Container runtime  | Docker + ECS Fargate                | Managed, scales per queue                              |
-| Frontend           | Next.js 14 + TypeScript 5           | Team familiarity                                       |
+| Frontend           | Next.js 16 + TypeScript 5           | Team familiarity                                       |
 | UI library         | shadcn/ui + Tailwind                | Unopinionated, fast to build                           |
 | Auth               | Sessions (backend) + JWT (API)      | Sessions for UI, JWT for machine-to-machine           |
 | Observability      | Datadog (metrics, logs, APM)        | Single pane                                            |

@@ -47,7 +47,7 @@ The system invests heavily in automated circuit breakers that pause sending at t
 | Database | PostgreSQL 15+ |
 | Email transport | AWS SES (boto3) |
 | DNS | Cloudflare API |
-| Frontend | Next.js 14 + TypeScript |
+| Frontend | Next.js 16 + TypeScript |
 | Infrastructure | AWS ECS Fargate + Terraform |
 | Observability | Datadog |
 
