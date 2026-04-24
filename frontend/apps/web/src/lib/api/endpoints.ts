@@ -26,6 +26,10 @@ export const apiEndpoints = {
     provision: (id: string) => `/domains/${id}/provision`,
     provisioningAttempt: (id: string) => `/domains/${id}/provision`,
     zones: (provider: string) => `/domains/zones?provider=${provider}`,
+    warmup: (id: string) => `/domains/${id}/warmup`,
+    warmupExtend: (id: string) => `/domains/${id}/warmup/extend`,
+    postmaster: (id: string) => `/domains/${id}/postmaster`,
+    postmasterConnect: (id: string) => `/domains/${id}/postmaster/connect`,
   },
   ops: {
     provisioning: "/ops/provisioning",

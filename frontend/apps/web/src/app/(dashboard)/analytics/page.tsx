@@ -6,11 +6,13 @@ import {
   getEngagementTimeSeries,
   getOpenRateHeatmap,
 } from "./_lib/analytics-queries";
+import { getWarmingDomains } from "@/app/(dashboard)/domains/_lib/warmup-queries";
 import { FreshnessBanner } from "./_components/freshness-banner";
 import { KpiCards } from "./_components/kpi-cards";
 import { TopCampaigns } from "./_components/top-campaigns";
 import { TopFailingDomains } from "./_components/top-failing-domains";
 import { EngagementCharts } from "./_components/engagement-charts";
+import { WarmingDomains } from "./_components/warming-domains";
 
 export default function AnalyticsPage() {
   const meta = getAnalyticsMeta();
@@ -19,6 +21,7 @@ export default function AnalyticsPage() {
   const domains = getDomainReputationData();
   const timeSeries = getEngagementTimeSeries();
   const heatmapCells = getOpenRateHeatmap();
+  const warmingDomains = getWarmingDomains();
 
   return (
     <div className="page-stack">
@@ -42,6 +45,8 @@ export default function AnalyticsPage() {
         <TopCampaigns rows={topCampaigns} />
         <TopFailingDomains domains={domains} />
       </div>
+
+      <WarmingDomains domains={warmingDomains} />
 
       <EngagementCharts timeSeries={timeSeries} heatmapCells={heatmapCells} />
     </div>

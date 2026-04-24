@@ -97,6 +97,51 @@ export type DenialEvent = {
   recipientCount: number;
 };
 
+export type WarmupPreset = "conservative" | "standard" | "aggressive" | "custom";
+export type WarmupLifecycle = "warming" | "healthy" | "cooling" | "burnt" | "retired";
+
+export type WarmupDay = {
+  day: number;
+  cap: number;
+  actualSends: number | null;
+};
+
+export type WarmupSchedule = {
+  preset: WarmupPreset;
+  totalDays: number;
+  days: WarmupDay[];
+};
+
+export type WarmupStatus = {
+  domainId: string;
+  lifecycle: WarmupLifecycle;
+  currentDay: number;
+  totalDays: number;
+  todayCap: number;
+  todaySends: number;
+  scheduledGraduationAt: string | null;
+  graduatedAt: string | null;
+  schedule: WarmupSchedule;
+};
+
+export type PostmasterReputation = "high" | "medium" | "low" | "bad";
+
+export type PostmasterDayMetric = {
+  date: string;
+  spamRatePct: number;
+  domainReputation: PostmasterReputation;
+  spfPassPct: number;
+  dkimPassPct: number;
+  dmarcPassPct: number;
+};
+
+export type PostmasterData = {
+  domainId: string;
+  connected: boolean;
+  asOf: string | null;
+  metrics: PostmasterDayMetric[];
+};
+
 export type SenderProfileStatus = "active" | "suspended";
 
 export type SenderProfile = {

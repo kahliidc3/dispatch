@@ -8,11 +8,14 @@ import {
   getThrottleStatus,
   getDenialEvents,
 } from "../_lib/domains-queries";
+import { getWarmupStatus, getPostmasterData } from "../_lib/warmup-queries";
 import { CircuitBreakerBadge } from "@/components/shared/circuit-breaker-badge";
 import { DnsRecords } from "../_components/dns-records";
 import { DomainRetireButton } from "../_components/domain-retire-button";
 import { VerifyButton } from "../_components/verify-button";
 import { ThroughputTab } from "./_components/throughput-tab";
+import { WarmupTab } from "./_components/warmup-tab";
+import { ReputationTab } from "./_components/reputation-tab";
 
 const statusVariant = {
   pending: "muted",
@@ -40,11 +43,15 @@ export default async function DomainDetailPage({
 
   const throttle = getThrottleStatus(domainId);
   const denialEvents = getDenialEvents(domainId);
+  const warmup = getWarmupStatus(domainId);
+  const postmaster = getPostmasterData(domainId);
 
   const tabs = [
     { key: "overview", label: "Overview" },
     { key: "dns", label: "DNS records" },
     { key: "throughput", label: "Throughput" },
+    { key: "warmup", label: "Warmup" },
+    { key: "reputation", label: "Reputation" },
   ];
 
   return (
@@ -99,6 +106,18 @@ export default async function DomainDetailPage({
                 state={domain.breaker}
               />
             </div>
+            {warmup && (
+              <div className="summary-row">
+                <span className="text-sm font-medium">Warmup</span>
+                <span className="text-sm text-text-muted">
+                  {warmup.currentDay === 0
+                    ? "Not started"
+                    : warmup.graduatedAt
+                      ? "Graduated"
+                      : `Day ${warmup.currentDay} / ${warmup.totalDays}`}
+                </span>
+              </div>
+            )}
             <div className="summary-row">
               <span className="text-sm font-medium">Created</span>
               <span className="text-sm text-text-muted">
@@ -129,6 +148,24 @@ export default async function DomainDetailPage({
             denialEvents={denialEvents}
             isAdmin={true}
           />
+        </SectionPanel>
+      )}
+
+      {tab === "warmup" && (
+        <SectionPanel title="Warmup schedule">
+          {warmup ? (
+            <WarmupTab domainId={domainId} warmup={warmup} />
+          ) : (
+            <p className="text-sm text-text-muted">
+              No warmup schedule found for this domain.
+            </p>
+          )}
+        </SectionPanel>
+      )}
+
+      {tab === "reputation" && (
+        <SectionPanel title="Google Postmaster">
+          <ReputationTab domainId={domainId} data={postmaster} />
         </SectionPanel>
       )}
     </div>
