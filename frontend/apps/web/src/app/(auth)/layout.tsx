@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { publicEnv } from "@/lib/env";
 
 export default function AuthLayout({
   children,
@@ -13,7 +14,7 @@ export default function AuthLayout({
             href="/"
             className="text-sm font-medium text-[color:var(--text-muted)]"
           >
-            Dispatch
+            {publicEnv.NEXT_PUBLIC_APP_NAME}
           </Link>
           {children}
         </div>

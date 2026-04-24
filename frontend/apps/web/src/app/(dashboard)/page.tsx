@@ -6,15 +6,15 @@ import { Badge } from "@/components/ui/badge";
 import { DataTable } from "@/components/shared/data-table";
 
 const routeRows = [
-  { surface: "Overview", path: "/", status: "Ready" },
-  { surface: "Login", path: "/login", status: "Ready" },
-  { surface: "Campaigns", path: "/campaigns", status: "Ready" },
-  { surface: "Contacts", path: "/contacts", status: "Ready" },
-  { surface: "Domains", path: "/domains", status: "Ready" },
-  { surface: "Templates", path: "/templates", status: "Ready" },
-  { surface: "Analytics", path: "/analytics", status: "Ready" },
-  { surface: "Suppression", path: "/suppression", status: "Ready" },
-  { surface: "Settings", path: "/settings", status: "Ready" },
+  { surface: "Overview", path: "/", status: "Protected" },
+  { surface: "Login", path: "/login", status: "Open" },
+  { surface: "Campaigns", path: "/campaigns", status: "Protected" },
+  { surface: "Contacts", path: "/contacts", status: "Protected" },
+  { surface: "Domains", path: "/domains", status: "Protected" },
+  { surface: "Templates", path: "/templates", status: "Protected" },
+  { surface: "Analytics", path: "/analytics", status: "Protected" },
+  { surface: "Suppression", path: "/suppression", status: "Protected" },
+  { surface: "Settings", path: "/settings", status: "Protected" },
 ];
 
 export default function DashboardHomePage() {
@@ -22,19 +22,19 @@ export default function DashboardHomePage() {
     <div className="page-stack">
       <PageIntro
         title="Dispatch"
-        description="Frontend bootstrap is active under frontend/apps/web. This route locks the App Router shell and the placeholder surface inventory before feature work starts."
-        actions={<Badge variant="outline">Docs-first scaffold</Badge>}
+        description="Sprint 01 turns the scaffold into a protected operator shell with typed request helpers, session gating, and reusable frontend primitives for the next feature sprints."
+        actions={<Badge variant="outline">Core shell foundation</Badge>}
       />
 
       <SectionPanel
-        title="What ships in Sprint 00"
-        description="Next.js 16 app bootstrap, route groups, restrained tokens, baseline primitives, local test tooling, and placeholder routes for the documented dashboard areas."
+        title="What ships in Sprint 01"
+        description="Signed local session handling, typed API helpers, keyboard navigation, production-grade shared primitives, and the first protected version of the dashboard shell."
       >
         <PropertiesList
           items={[
-            { label: "Backend coupling", value: "None in this sprint" },
+            { label: "Backend coupling", value: "Frontend-contained only" },
             { label: "Shared root tooling", value: "Deferred" },
-            { label: "Visual baseline", value: "HVA-aligned operator UI" },
+            { label: "Auth boundary", value: "Protected shell via local session" },
           ]}
         />
       </SectionPanel>
@@ -43,12 +43,12 @@ export default function DashboardHomePage() {
         <div>
           <h2 className="section-title">Route inventory</h2>
           <p className="page-description">
-            Every row below resolves to a placeholder surface in the current
-            scaffold.
+            Every row below resolves inside the protected shell, except the
+            dedicated login route.
           </p>
         </div>
         <DataTable
-          caption="Sprint 00 route coverage"
+          caption="Sprint 01 route coverage"
           columns={[
             { key: "surface", label: "Surface" },
             { key: "path", label: "Path", className: "mono text-xs" },
@@ -61,7 +61,13 @@ export default function DashboardHomePage() {
               </Link>
             ),
             path: route.path,
-            status: <Badge variant="outline">{route.status}</Badge>,
+            status: (
+              <Badge
+                variant={route.status === "Open" ? "outline" : "success"}
+              >
+                {route.status}
+              </Badge>
+            ),
           }))}
         />
       </section>

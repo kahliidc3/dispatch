@@ -1,52 +1,41 @@
-import { DataTable } from "@/components/shared/data-table";
-import { Badge } from "@/components/ui/badge";
+import { PageIntro } from "@/components/patterns/page-intro";
+import { requireAdmin } from "@/lib/auth/guards";
+import { ApiKeysManager } from "./_components/api-keys-manager";
 
-const apiKeys = [
+const initialApiKeys = [
   {
+    id: "key-import-worker",
     name: "Import worker",
-    prefix: "disp_12ab",
-    lastUsed: "2026-04-23 09:10",
+    prefix: "ak_live_opr921",
+    last4: "M9qZ",
+    createdAt: "2026-04-18T08:25:00.000Z",
+    lastUsedAt: "2026-04-23T09:10:00.000Z",
+    revokedAt: null,
     status: "active",
   },
   {
+    id: "key-ops-audit",
     name: "Ops audit",
-    prefix: "disp_54cd",
-    lastUsed: "2026-04-22 19:45",
+    prefix: "ak_live_ztm114",
+    last4: "D3fL",
+    createdAt: "2026-04-09T16:45:00.000Z",
+    lastUsedAt: "2026-04-22T19:45:00.000Z",
+    revokedAt: "2026-04-23T18:05:00.000Z",
     status: "revoked",
+    revokedReason: "Rotated after quarterly credential review",
   },
-];
+] as const;
 
-export default function SettingsApiKeysPage() {
+export default async function SettingsApiKeysPage() {
+  await requireAdmin();
+
   return (
     <div className="page-stack">
-      <header className="page-header">
-        <div>
-          <h1 className="page-title">API keys</h1>
-          <p className="page-description">
-            Key creation, one-time reveal, and revocation workflows land in
-            Sprint 02. This route locks the future screen path now.
-          </p>
-        </div>
-      </header>
-      <DataTable
-        caption="Static API key placeholder"
-        columns={[
-          { key: "name", label: "Name" },
-          { key: "prefix", label: "Prefix", className: "mono text-xs" },
-          { key: "lastUsed", label: "Last used" },
-          { key: "status", label: "Status" },
-        ]}
-        rows={apiKeys.map((key) => ({
-          name: key.name,
-          prefix: key.prefix,
-          lastUsed: key.lastUsed,
-          status: (
-            <Badge variant={key.status === "active" ? "success" : "outline"}>
-              {key.status}
-            </Badge>
-          ),
-        }))}
+      <PageIntro
+        title="API keys"
+        description="Manage internal integration credentials with one-time secret reveal, explicit revocation reasons, and a table that only shows safe metadata."
       />
+      <ApiKeysManager initialKeys={[...initialApiKeys]} />
     </div>
   );
 }

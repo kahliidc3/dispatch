@@ -1,36 +1,47 @@
-import { DataTable } from "@/components/shared/data-table";
-import { Badge } from "@/components/ui/badge";
+import { PageIntro } from "@/components/patterns/page-intro";
+import { requireAdmin } from "@/lib/auth/guards";
+import { UsersManager } from "./_components/users-manager";
 
-const users = [
-  { name: "Ops Admin", role: "admin", status: "active" },
-  { name: "Campaign Operator", role: "user", status: "active" },
-];
+const initialUsers = [
+  {
+    id: "user-ops-admin",
+    name: "Ops Admin",
+    email: "ops-admin@dispatch.internal",
+    role: "admin",
+    status: "active",
+    lastLoginAt: "2026-04-23T11:20:00.000Z",
+    mfaState: "enrolled",
+  },
+  {
+    id: "user-campaign-operator",
+    name: "Campaign Operator",
+    email: "campaign-operator@dispatch.internal",
+    role: "user",
+    status: "active",
+    lastLoginAt: "2026-04-22T17:40:00.000Z",
+    mfaState: "enrolled",
+  },
+  {
+    id: "user-qa-shadow",
+    name: "QA Shadow",
+    email: "qa-shadow@dispatch.internal",
+    role: "user",
+    status: "disabled",
+    lastLoginAt: null,
+    mfaState: "reset_required",
+  },
+] as const;
 
-export default function SettingsUsersPage() {
+export default async function SettingsUsersPage() {
+  await requireAdmin();
+
   return (
     <div className="page-stack">
-      <header className="page-header">
-        <div>
-          <h1 className="page-title">Users</h1>
-          <p className="page-description">
-            User creation, role edits, and MFA resets land in Sprint 02. This
-            page keeps the nested settings route stable.
-          </p>
-        </div>
-      </header>
-      <DataTable
-        caption="Static user list placeholder"
-        columns={[
-          { key: "name", label: "Name" },
-          { key: "role", label: "Role" },
-          { key: "status", label: "Status" },
-        ]}
-        rows={users.map((user) => ({
-          name: user.name,
-          role: user.role,
-          status: <Badge variant="success">{user.status}</Badge>,
-        }))}
+      <PageIntro
+        title="Users"
+        description="Admin-only controls for creating operators, suspending access, and forcing MFA reset without exposing secret material in the browser."
       />
+      <UsersManager initialUsers={[...initialUsers]} />
     </div>
   );
 }

@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import DashboardHomePage from "@/app/(dashboard)/page";
 
 describe("DashboardHomePage", () => {
-  it("renders the Sprint 00 placeholder shell", () => {
+  it("renders the Sprint 01 shell summary", () => {
     render(<DashboardHomePage />);
 
     expect(
@@ -11,10 +11,10 @@ describe("DashboardHomePage", () => {
         name: "Dispatch",
       }),
     ).toBeInTheDocument();
-    expect(screen.getByText("Docs-first scaffold")).toBeInTheDocument();
+    expect(screen.getByText("Core shell foundation")).toBeInTheDocument();
     expect(
       screen.getByRole("table", {
-        name: "Sprint 00 route coverage",
+        name: "Sprint 01 route coverage",
       }),
     ).toBeInTheDocument();
     expect(

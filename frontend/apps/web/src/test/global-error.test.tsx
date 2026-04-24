@@ -1,32 +1,18 @@
-import { fireEvent, render, screen } from "@testing-library/react";
-import type { ReactElement, ReactNode } from "react";
-import { isValidElement } from "react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import { trackError } from "@/lib/telemetry";
 import GlobalError from "@/app/global-error";
 
+vi.mock("@/lib/telemetry", () => ({
+  trackError: vi.fn().mockResolvedValue(undefined),
+}));
+
 describe("GlobalError", () => {
-  it("renders the root error fallback and retries", () => {
+  it("renders the root error fallback, reports it, and retries", async () => {
     const reset = vi.fn();
-    const tree = GlobalError({
-      error: new Error("scaffold failure"),
-      reset,
-    });
+    const error = new Error("scaffold failure");
 
-    expect(isValidElement(tree)).toBe(true);
-    if (!isValidElement(tree)) {
-      return;
-    }
-
-    const html = tree as ReactElement<{ children: ReactNode }>;
-    const body = html.props.children;
-    expect(isValidElement(body)).toBe(true);
-    if (!isValidElement(body)) {
-      return;
-    }
-
-    const bodyElement = body as ReactElement<{ children: ReactNode }>;
-
-    render(bodyElement.props.children);
+    render(<GlobalError error={error} reset={reset} />);
 
     expect(
       screen.getByRole("heading", {
@@ -34,6 +20,12 @@ describe("GlobalError", () => {
       }),
     ).toBeInTheDocument();
     expect(screen.getByText("scaffold failure")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(trackError).toHaveBeenCalledWith(error, {
+        boundary: "global",
+        digest: null,
+      });
+    });
 
     fireEvent.click(
       screen.getByRole("button", {
