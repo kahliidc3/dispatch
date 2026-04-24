@@ -38,6 +38,48 @@ export type DomainDetail = {
   dnsRecords: DnsRecord[];
 };
 
+export type ProvisioningProvider = "manual" | "cloudflare" | "route53";
+export type ProvisioningStepStatus =
+  | "pending"
+  | "running"
+  | "success"
+  | "failed"
+  | "skipped";
+export type ProvisioningStatus =
+  | "in_progress"
+  | "completed"
+  | "failed"
+  | "abandoned";
+
+export type ProvisioningStep = {
+  key: string;
+  label: string;
+  status: ProvisioningStepStatus;
+  startedAt: string | null;
+  completedAt: string | null;
+  elapsedMs: number | null;
+  errorDetail: string | null;
+};
+
+export type ProvisioningAttempt = {
+  id: string;
+  domainId: string;
+  domainName: string;
+  provider: ProvisioningProvider;
+  status: ProvisioningStatus;
+  steps: ProvisioningStep[];
+  startedAt: string;
+  completedAt: string | null;
+  failureReason: string | null;
+  failureRemediation: string | null;
+};
+
+export type DnsZone = {
+  id: string;
+  name: string;
+  provider: Exclude<ProvisioningProvider, "manual">;
+};
+
 export type ThrottleStatus = {
   domainId: string;
   rateLimit: number;

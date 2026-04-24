@@ -23,6 +23,12 @@ export const apiEndpoints = {
     verify: (id: string) => `/domains/${id}/verify`,
     health: (id: string) => `/domains/${id}/health`,
     retire: (id: string) => `/domains/${id}/retire`,
+    provision: (id: string) => `/domains/${id}/provision`,
+    provisioningAttempt: (id: string) => `/domains/${id}/provision`,
+    zones: (provider: string) => `/domains/zones?provider=${provider}`,
+  },
+  ops: {
+    provisioning: "/ops/provisioning",
   },
   senderProfiles: {
     list: "/sender-profiles",

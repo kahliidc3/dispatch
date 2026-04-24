@@ -106,6 +106,13 @@ const dashboardNavigation: NavigationSection[] = [
         roles: ["admin"],
       },
       {
+        href: "/ops/provisioning",
+        label: "Provisioning",
+        description: "Audit log for automated domain provisioning attempts.",
+        keywords: ["provision", "cloudflare", "route53", "dns", "ses", "history"],
+        roles: ["admin"],
+      },
+      {
         href: "/ops/circuit-breakers",
         label: "Circuit breakers",
         description: "Four-scope breaker matrix — diagnose trips and reset with justification.",
