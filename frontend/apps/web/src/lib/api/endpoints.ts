@@ -83,7 +83,14 @@ export const apiEndpoints = {
     launch: (id: string) => `/campaigns/${id}/launch`,
     pause: (id: string) => `/campaigns/${id}/pause`,
     resume: (id: string) => `/campaigns/${id}/resume`,
+    cancel: (id: string) => `/campaigns/${id}/cancel`,
     analytics: (id: string) => `/campaigns/${id}/analytics`,
+    messages: (id: string) => `/campaigns/${id}/messages`,
+    messageById: (campaignId: string, messageId: string) =>
+      `/campaigns/${campaignId}/messages/${messageId}`,
+    bulkRequeue: (id: string) => `/campaigns/${id}/messages/requeue`,
+    messageRequeue: (campaignId: string, messageId: string) =>
+      `/campaigns/${campaignId}/messages/${messageId}/requeue`,
   },
   suppression: {
     list: "/suppression",

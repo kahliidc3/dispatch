@@ -3,7 +3,9 @@ export type CampaignStatus =
   | "scheduled"
   | "running"
   | "paused"
-  | "completed";
+  | "completed"
+  | "cancelled"
+  | "failed";
 
 export type CampaignRecord = {
   id: string;
@@ -11,6 +13,79 @@ export type CampaignRecord = {
   audience: string;
   status: CampaignStatus;
   updatedAt: string;
+};
+
+export type CampaignKpis = {
+  queued: number;
+  sending: number;
+  sent: number;
+  delivered: number;
+  bounced: number;
+  complained: number;
+  opened: number;
+  clicked: number;
+};
+
+export type VelocityPoint = {
+  label: string;
+  value: number;
+};
+
+export type CampaignDetail = CampaignRecord & {
+  kpis: CampaignKpis;
+  velocityPoints: VelocityPoint[];
+};
+
+export type MessageStatus =
+  | "queued"
+  | "sending"
+  | "sent"
+  | "delivered"
+  | "opened"
+  | "clicked"
+  | "bounced"
+  | "complained"
+  | "failed";
+
+export type MessageEventType =
+  | "queued"
+  | "sent"
+  | "delivered"
+  | "opened"
+  | "clicked"
+  | "bounced"
+  | "complained"
+  | "failed";
+
+export type MessageEvent = {
+  id: string;
+  type: MessageEventType;
+  timestamp: string;
+  detail: string | null;
+};
+
+export type CampaignMessage = {
+  id: string;
+  campaignId: string;
+  email: string;
+  status: MessageStatus;
+  lastEventAt: string;
+  hasBounce: boolean;
+  hasClick: boolean;
+  hasComplaint: boolean;
+  sesMessageId: string | null;
+};
+
+export type CampaignMessageDetail = CampaignMessage & {
+  contactId: string;
+  senderProfileName: string;
+  events: MessageEvent[];
+  renderedHtml: string | null;
+};
+
+export type MessagesPage = {
+  messages: CampaignMessage[];
+  nextCursor: string | null;
 };
 
 export type CampaignDraft = {

@@ -4,13 +4,18 @@ import { Badge } from "@/components/ui/badge";
 import { formatTimestamp } from "@/lib/formatters";
 import { campaigns } from "../_lib/campaigns-queries";
 
-const statusVariant = {
+const statusVariant: Record<
+  import("@/types/campaign").CampaignStatus,
+  "muted" | "warning" | "success" | "outline" | "danger"
+> = {
   draft: "muted",
   scheduled: "warning",
   running: "success",
   paused: "outline",
   completed: "outline",
-} as const;
+  cancelled: "danger",
+  failed: "danger",
+};
 
 export function CampaignsTable() {
   return (

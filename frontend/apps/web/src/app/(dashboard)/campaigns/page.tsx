@@ -8,13 +8,15 @@ import type { CampaignStatus } from "@/types/campaign";
 
 const statusVariant: Record<
   CampaignStatus,
-  "muted" | "warning" | "success" | "outline"
+  "muted" | "warning" | "success" | "outline" | "danger"
 > = {
   draft: "muted",
   scheduled: "warning",
   running: "success",
   paused: "outline",
   completed: "outline",
+  cancelled: "danger",
+  failed: "danger",
 };
 
 const STATUS_TABS: { value: CampaignStatus | "all"; label: string }[] = [
