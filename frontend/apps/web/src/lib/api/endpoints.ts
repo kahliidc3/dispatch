@@ -33,11 +33,24 @@ export const apiEndpoints = {
   contacts: {
     list: "/contacts",
     byId: (id: string) => `/contacts/${id}`,
+    create: "/contacts",
+    delete: (id: string) => `/contacts/${id}`,
+    unsubscribe: (id: string) => `/contacts/${id}/unsubscribe`,
+    bulkUnsubscribe: "/contacts/bulk-unsubscribe",
     bulkImport: "/contacts/bulk-import",
   },
   lists: {
     list: "/lists",
+    byId: (id: string) => `/lists/${id}`,
+    create: "/lists",
+    delete: (id: string) => `/lists/${id}`,
     members: (id: string) => `/lists/${id}/members`,
+    addMember: (id: string) => `/lists/${id}/members`,
+    removeMember: (listId: string, contactId: string) =>
+      `/lists/${listId}/members/${contactId}`,
+  },
+  publicUnsubscribe: {
+    confirm: "/unsubscribe",
   },
   segments: {
     list: "/segments",

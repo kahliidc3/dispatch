@@ -67,9 +67,9 @@ export function Sidebar({ session }: SidebarProps) {
         ))}
       </nav>
       <div className="surface-panel-muted p-4">
-        <p className="text-sm font-medium">Sprint 03 status</p>
+        <p className="text-sm font-medium">Sprint 04 status</p>
         <p className="mt-2 text-sm text-text-muted">
-          Domains, DNS record viewer, verify flow, and sender profiles are
+          Contacts, lists, lifecycle controls, and public unsubscribe are
           active.
         </p>
       </div>

@@ -43,8 +43,14 @@ const dashboardNavigation: NavigationSection[] = [
       {
         href: "/contacts",
         label: "Contacts",
-        description: "Contact list, detail, and import placeholder surfaces.",
-        keywords: ["lists", "segments", "import"],
+        description: "Browse, filter, and manage contacts with lifecycle controls and list membership.",
+        keywords: ["lists", "segments", "import", "unsubscribe"],
+      },
+      {
+        href: "/lists",
+        label: "Lists",
+        description: "Create and manage contact lists for targeted campaign sends.",
+        keywords: ["groups", "segments", "contacts", "membership"],
       },
       {
         href: "/suppression",
