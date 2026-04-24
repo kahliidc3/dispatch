@@ -60,9 +60,13 @@ export const apiEndpoints = {
   },
   templates: {
     list: "/templates",
+    create: "/templates",
+    byId: (id: string) => `/templates/${id}`,
     versions: (id: string) => `/templates/${id}/versions`,
+    version: (id: string, ver: number) => `/templates/${id}/versions/${ver}`,
     publishVersion: (id: string, version: string) =>
       `/templates/${id}/versions/${version}/publish`,
+    mergeTags: "/templates/merge-tags",
   },
   campaigns: {
     list: "/campaigns",
