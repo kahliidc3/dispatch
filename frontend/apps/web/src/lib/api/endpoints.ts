@@ -84,7 +84,12 @@ export const apiEndpoints = {
   },
   suppression: {
     list: "/suppression",
+    create: "/suppression",
+    bulkImport: "/suppression/bulk-import",
+    export: "/suppression/export",
     byEmail: (email: string) => `/suppression/${encodeURIComponent(email)}`,
+    remove: (email: string) => `/suppression/${encodeURIComponent(email)}`,
+    reveal: (id: string) => `/suppression/${id}/reveal`,
   },
   analytics: {
     overview: "/analytics/overview",

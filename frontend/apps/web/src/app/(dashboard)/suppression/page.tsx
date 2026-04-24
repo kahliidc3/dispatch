@@ -1,18 +1,32 @@
-import { SuppressionTable } from "./_components/suppression-table";
+import { getSession } from "@/lib/auth/session";
+import { isAdmin } from "@/lib/auth/guards";
+import { SuppressionManager } from "./_components/suppression-manager";
+import {
+  mockSuppressionList,
+  mockSyncStatus,
+} from "./_lib/suppression-queries";
 
-export default function SuppressionPage() {
+export default async function SuppressionPage() {
+  const session = await getSession();
+  const adminUser = isAdmin(session);
+
   return (
     <div className="page-stack">
-      <header className="page-header">
-        <div>
-          <h1 className="page-title">Suppression</h1>
+      <header className="page-intro">
+        <div className="page-intro-copy">
+          <h1 className="page-title">Suppression list</h1>
           <p className="page-description">
-            Platform-wide suppression actions and audit flows are deferred. This
-            page reserves the route and table surface.
+            Platform-wide suppression entries. Emails here are excluded from all
+            campaign sends. Removals are audited and require justification.
           </p>
         </div>
       </header>
-      <SuppressionTable />
+
+      <SuppressionManager
+        initialEntries={mockSuppressionList}
+        syncStatus={mockSyncStatus}
+        isAdmin={adminUser}
+      />
     </div>
   );
 }
