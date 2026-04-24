@@ -38,6 +38,23 @@ export type DomainDetail = {
   dnsRecords: DnsRecord[];
 };
 
+export type ThrottleStatus = {
+  domainId: string;
+  rateLimit: number;
+  tokensAvailable: number;
+  refillRate: number;
+  denialsPerMinute: number;
+  updatedAt: string;
+};
+
+export type DenialEvent = {
+  id: string;
+  domainId: string;
+  occurredAt: string;
+  reason: string;
+  recipientCount: number;
+};
+
 export type SenderProfileStatus = "active" | "suspended";
 
 export type SenderProfile = {

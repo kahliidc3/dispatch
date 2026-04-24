@@ -3,11 +3,16 @@ import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { SectionPanel } from "@/components/patterns/section-panel";
 import { formatTimestamp } from "@/lib/formatters";
-import { getDomainDetail } from "../_lib/domains-queries";
+import {
+  getDomainDetail,
+  getThrottleStatus,
+  getDenialEvents,
+} from "../_lib/domains-queries";
 import { CircuitBreakerBadges } from "../_components/circuit-breaker-badges";
 import { DnsRecords } from "../_components/dns-records";
 import { DomainRetireButton } from "../_components/domain-retire-button";
 import { VerifyButton } from "../_components/verify-button";
+import { ThroughputTab } from "./_components/throughput-tab";
 
 const statusVariant = {
   pending: "muted",
@@ -20,15 +25,27 @@ const statusVariant = {
 
 type DomainDetailPageProps = {
   params: Promise<{ domainId: string }>;
+  searchParams: Promise<{ tab?: string }>;
 };
 
 export default async function DomainDetailPage({
   params,
+  searchParams,
 }: DomainDetailPageProps) {
   const { domainId } = await params;
-  const domain = getDomainDetail(domainId);
+  const { tab = "overview" } = await searchParams;
 
+  const domain = getDomainDetail(domainId);
   if (!domain) notFound();
+
+  const throttle = getThrottleStatus(domainId);
+  const denialEvents = getDenialEvents(domainId);
+
+  const tabs = [
+    { key: "overview", label: "Overview" },
+    { key: "dns", label: "DNS records" },
+    { key: "throughput", label: "Throughput" },
+  ];
 
   return (
     <div className="page-stack">
@@ -48,34 +65,68 @@ export default async function DomainDetailPage({
         </div>
       </header>
 
-      <SectionPanel title="Overview">
-        <div className="summary-list">
-          <div className="summary-row">
-            <span className="text-sm font-medium">Status</span>
-            <Badge variant={statusVariant[domain.status]}>{domain.status}</Badge>
-          </div>
-          <div className="summary-row">
-            <span className="text-sm font-medium">Circuit breaker</span>
-            <CircuitBreakerBadges state={domain.breaker} />
-          </div>
-          <div className="summary-row">
-            <span className="text-sm font-medium">Created</span>
-            <span className="text-sm text-text-muted">
-              {formatTimestamp(domain.createdAt)}
-            </span>
-          </div>
-          <div className="summary-row">
-            <span className="text-sm font-medium">Last updated</span>
-            <span className="text-sm text-text-muted">
-              {formatTimestamp(domain.updatedAt)}
-            </span>
-          </div>
+      <nav aria-label="Domain detail tabs">
+        <div className="flex border-b border-border">
+          {tabs.map((t) => (
+            <Link
+              key={t.key}
+              href={`/domains/${domainId}?tab=${t.key}`}
+              aria-current={tab === t.key ? "page" : undefined}
+              className={`inline-flex items-center border-b-2 px-3 py-2 text-sm transition-colors ${
+                tab === t.key
+                  ? "border-primary text-foreground"
+                  : "border-transparent text-text-muted hover:text-foreground"
+              }`}
+            >
+              {t.label}
+            </Link>
+          ))}
         </div>
-      </SectionPanel>
+      </nav>
 
-      <SectionPanel>
-        <DnsRecords records={domain.dnsRecords} />
-      </SectionPanel>
+      {tab === "overview" && (
+        <SectionPanel title="Overview">
+          <div className="summary-list">
+            <div className="summary-row">
+              <span className="text-sm font-medium">Status</span>
+              <Badge variant={statusVariant[domain.status]}>{domain.status}</Badge>
+            </div>
+            <div className="summary-row">
+              <span className="text-sm font-medium">Circuit breaker</span>
+              <CircuitBreakerBadges state={domain.breaker} />
+            </div>
+            <div className="summary-row">
+              <span className="text-sm font-medium">Created</span>
+              <span className="text-sm text-text-muted">
+                {formatTimestamp(domain.createdAt)}
+              </span>
+            </div>
+            <div className="summary-row">
+              <span className="text-sm font-medium">Last updated</span>
+              <span className="text-sm text-text-muted">
+                {formatTimestamp(domain.updatedAt)}
+              </span>
+            </div>
+          </div>
+        </SectionPanel>
+      )}
+
+      {tab === "dns" && (
+        <SectionPanel>
+          <DnsRecords records={domain.dnsRecords} />
+        </SectionPanel>
+      )}
+
+      {tab === "throughput" && (
+        <SectionPanel title="Throughput">
+          <ThroughputTab
+            domainId={domainId}
+            throttle={throttle}
+            denialEvents={denialEvents}
+            isAdmin={true}
+          />
+        </SectionPanel>
+      )}
     </div>
   );
 }

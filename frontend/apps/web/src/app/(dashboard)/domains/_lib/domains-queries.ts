@@ -1,4 +1,10 @@
-import type { DnsRecord, DomainDetail, DomainListItem } from "@/types/domain";
+import type {
+  DenialEvent,
+  DnsRecord,
+  DomainDetail,
+  DomainListItem,
+  ThrottleStatus,
+} from "@/types/domain";
 
 const dnsRecordsPending: DnsRecord[] = [
   {
@@ -204,4 +210,111 @@ export function getDomainDetail(id: string): DomainDetail | undefined {
 
 export function getVerifiedDomains(): DomainListItem[] {
   return domainList.filter((d) => d.status === "verified");
+}
+
+const throttleData: Record<string, ThrottleStatus> = {
+  "dom-001": {
+    domainId: "dom-001",
+    rateLimit: 150,
+    tokensAvailable: 142,
+    refillRate: 2.5,
+    denialsPerMinute: 0,
+    updatedAt: "2026-04-24T09:55:00Z",
+  },
+  "dom-002": {
+    domainId: "dom-002",
+    rateLimit: 300,
+    tokensAvailable: 81,
+    refillRate: 5.0,
+    denialsPerMinute: 3.2,
+    updatedAt: "2026-04-24T09:57:00Z",
+  },
+  "dom-003": {
+    domainId: "dom-003",
+    rateLimit: 150,
+    tokensAvailable: 0,
+    refillRate: 2.5,
+    denialsPerMinute: 14.7,
+    updatedAt: "2026-04-24T09:58:00Z",
+  },
+};
+
+export function getThrottleStatus(domainId: string): ThrottleStatus {
+  return (
+    throttleData[domainId] ?? {
+      domainId,
+      rateLimit: 150,
+      tokensAvailable: 150,
+      refillRate: 2.5,
+      denialsPerMinute: 0,
+      updatedAt: new Date().toISOString(),
+    }
+  );
+}
+
+const denialEventsData: Record<string, DenialEvent[]> = {
+  "dom-002": [
+    {
+      id: "den-002-1",
+      domainId: "dom-002",
+      occurredAt: "2026-04-24T09:54:22Z",
+      reason: "token_bucket_empty",
+      recipientCount: 12,
+    },
+    {
+      id: "den-002-2",
+      domainId: "dom-002",
+      occurredAt: "2026-04-24T09:50:07Z",
+      reason: "token_bucket_empty",
+      recipientCount: 8,
+    },
+    {
+      id: "den-002-3",
+      domainId: "dom-002",
+      occurredAt: "2026-04-24T09:45:51Z",
+      reason: "rate_limit_exceeded",
+      recipientCount: 23,
+    },
+  ],
+  "dom-003": [
+    {
+      id: "den-003-1",
+      domainId: "dom-003",
+      occurredAt: "2026-04-24T09:58:01Z",
+      reason: "circuit_breaker_open",
+      recipientCount: 150,
+    },
+    {
+      id: "den-003-2",
+      domainId: "dom-003",
+      occurredAt: "2026-04-24T09:57:44Z",
+      reason: "token_bucket_empty",
+      recipientCount: 72,
+    },
+    {
+      id: "den-003-3",
+      domainId: "dom-003",
+      occurredAt: "2026-04-24T09:55:30Z",
+      reason: "token_bucket_empty",
+      recipientCount: 91,
+    },
+    {
+      id: "den-003-4",
+      domainId: "dom-003",
+      occurredAt: "2026-04-24T09:52:18Z",
+      reason: "circuit_breaker_open",
+      recipientCount: 88,
+    },
+    {
+      id: "den-003-5",
+      domainId: "dom-003",
+      occurredAt: "2026-04-24T09:48:03Z",
+      reason: "rate_limit_exceeded",
+      recipientCount: 200,
+    },
+  ],
+};
+
+export function getDenialEvents(domainId: string): DenialEvent[] {
+  return denialEventsData[domainId] ?? [];
 }

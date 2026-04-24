@@ -96,6 +96,18 @@ const dashboardNavigation: NavigationSection[] = [
     ],
   },
   {
+    title: "Ops",
+    items: [
+      {
+        href: "/ops/queues",
+        label: "Queues",
+        description: "Per-domain send queue depths, worker counts, and denial rates.",
+        keywords: ["throttle", "queue", "worker", "celery", "backlog"],
+        roles: ["admin"],
+      },
+    ],
+  },
+  {
     title: "Admin",
     items: [
       {
