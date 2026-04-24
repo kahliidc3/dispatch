@@ -67,6 +67,7 @@ function buildVelocityPoints(count = 60): { label: string; value: number }[] {
 
 const DETAIL_MAP: Record<string, Omit<CampaignDetail, keyof CampaignRecord>> = {
   "cmp-003": {
+    domainId: "dom-003",
     kpis: {
       queued: 1240,
       sending: 38,
@@ -80,6 +81,7 @@ const DETAIL_MAP: Record<string, Omit<CampaignDetail, keyof CampaignRecord>> = {
     velocityPoints: buildVelocityPoints(),
   },
   "cmp-004": {
+    domainId: "dom-002",
     kpis: {
       queued: 0,
       sending: 0,
@@ -97,6 +99,7 @@ const DETAIL_MAP: Record<string, Omit<CampaignDetail, keyof CampaignRecord>> = {
 export function getMockCampaignDetail(campaignId: string): CampaignDetail {
   const base = getCampaignById(campaignId);
   const extra = DETAIL_MAP[campaignId] ?? {
+    domainId: "dom-002",
     kpis: {
       queued: 0,
       sending: 0,

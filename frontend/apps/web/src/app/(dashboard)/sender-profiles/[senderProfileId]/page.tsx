@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { SectionPanel } from "@/components/patterns/section-panel";
 import { formatTimestamp } from "@/lib/formatters";
+import { CircuitBreakerBadge } from "@/components/shared/circuit-breaker-badge";
+import { getBreakerForEntity } from "@/app/(dashboard)/ops/_lib/ops-queries";
 import { getSenderProfileById } from "../_lib/sender-profiles-queries";
 
 type SenderProfileDetailPageProps = {
@@ -16,6 +18,8 @@ export default async function SenderProfileDetailPage({
   const profile = getSenderProfileById(senderProfileId);
 
   if (!profile) notFound();
+
+  const breaker = getBreakerForEntity("sender_profile", profile.id);
 
   return (
     <div className="page-stack">
@@ -62,6 +66,16 @@ export default async function SenderProfileDetailPage({
               {profile.domainName}
             </Link>
           </div>
+          {breaker && (
+            <div className="summary-row">
+              <span className="text-sm font-medium">Circuit breaker</span>
+              <CircuitBreakerBadge
+                scope="sender_profile"
+                entityId={profile.id}
+                state={breaker.state}
+              />
+            </div>
+          )}
           <div className="summary-row">
             <span className="text-sm font-medium">Created</span>
             <span className="text-sm text-text-muted">

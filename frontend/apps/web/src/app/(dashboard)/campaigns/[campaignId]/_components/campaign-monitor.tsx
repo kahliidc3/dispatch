@@ -20,17 +20,22 @@ import type {
   CampaignStatus,
   MessagesPage,
 } from "@/types/campaign";
+import type { BreakerEntryState } from "@/types/ops";
 
 const POLL_INTERVAL_MS = 15_000;
 
 type CampaignMonitorProps = {
   initialDetail: CampaignDetail;
   initialPage: MessagesPage;
+  domainBreakerState?: BreakerEntryState;
+  domainId?: string;
 };
 
 export function CampaignMonitor({
   initialDetail,
   initialPage,
+  domainBreakerState = "closed",
+  domainId,
 }: CampaignMonitorProps) {
   const [detail, setDetail] = useState<CampaignDetail>(initialDetail);
   const [messages, setMessages] = useState<CampaignMessage[]>(
@@ -156,7 +161,12 @@ export function CampaignMonitor({
 
   return (
     <div className="grid gap-6">
-      <CampaignHeader detail={detail} onStatusChange={handleStatusChange} />
+      <CampaignHeader
+        detail={detail}
+        onStatusChange={handleStatusChange}
+        domainBreakerState={domainBreakerState}
+        domainId={domainId}
+      />
       <CampaignMetrics kpis={detail.kpis} velocityPoints={detail.velocityPoints} />
       <MessagesTable
         messages={messages}

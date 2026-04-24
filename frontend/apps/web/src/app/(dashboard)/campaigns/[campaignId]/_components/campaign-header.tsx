@@ -3,9 +3,11 @@
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { CircuitBreakerBadge } from "@/components/shared/circuit-breaker-badge";
 import { clientJson } from "@/lib/api/client";
 import { apiEndpoints } from "@/lib/api/endpoints";
 import type { CampaignDetail, CampaignKpis, CampaignStatus } from "@/types/campaign";
+import type { BreakerEntryState } from "@/types/ops";
 
 const statusVariant: Record<
   CampaignStatus,
@@ -47,9 +49,16 @@ const KPI_KEYS: { key: keyof CampaignKpis; label: string }[] = [
 type CampaignHeaderProps = {
   detail: CampaignDetail;
   onStatusChange: (newStatus: CampaignStatus) => void;
+  domainBreakerState?: BreakerEntryState;
+  domainId?: string;
 };
 
-export function CampaignHeader({ detail, onStatusChange }: CampaignHeaderProps) {
+export function CampaignHeader({
+  detail,
+  onStatusChange,
+  domainBreakerState,
+  domainId,
+}: CampaignHeaderProps) {
   const { status } = detail;
 
   async function handleAction(action: "pause" | "resume" | "cancel") {
@@ -81,6 +90,14 @@ export function CampaignHeader({ detail, onStatusChange }: CampaignHeaderProps) 
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <Badge variant={statusVariant[status]}>{status}</Badge>
+
+          {domainBreakerState && domainId && (
+            <CircuitBreakerBadge
+              scope="domain"
+              entityId={domainId}
+              state={domainBreakerState}
+            />
+          )}
 
           {status === "running" && (
             <ConfirmDialog

@@ -4,6 +4,7 @@ import {
   getMockCampaignDetail,
   getMockMessagesPage,
 } from "../_lib/campaigns-queries";
+import { getBreakerForEntity } from "@/app/(dashboard)/ops/_lib/ops-queries";
 import { CampaignMonitor } from "./_components/campaign-monitor";
 
 type CampaignDetailPageProps = {
@@ -20,6 +21,7 @@ export default async function CampaignDetailPage({
 
   const detail = getMockCampaignDetail(campaignId);
   const initialPage = getMockMessagesPage(campaignId, null, null);
+  const domainBreaker = getBreakerForEntity("domain", detail.domainId);
 
   return (
     <div className="page-stack">
@@ -28,7 +30,12 @@ export default async function CampaignDetailPage({
           <h1 className="page-title">Campaign monitoring</h1>
         </div>
       </header>
-      <CampaignMonitor initialDetail={detail} initialPage={initialPage} />
+      <CampaignMonitor
+        initialDetail={detail}
+        initialPage={initialPage}
+        domainBreakerState={domainBreaker?.state ?? "closed"}
+        domainId={detail.domainId}
+      />
     </div>
   );
 }

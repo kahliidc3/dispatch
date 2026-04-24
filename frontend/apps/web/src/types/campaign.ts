@@ -32,6 +32,7 @@ export type VelocityPoint = {
 };
 
 export type CampaignDetail = CampaignRecord & {
+  domainId: string;
   kpis: CampaignKpis;
   velocityPoints: VelocityPoint[];
 };

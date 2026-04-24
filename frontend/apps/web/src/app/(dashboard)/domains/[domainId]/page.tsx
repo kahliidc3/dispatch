@@ -8,7 +8,7 @@ import {
   getThrottleStatus,
   getDenialEvents,
 } from "../_lib/domains-queries";
-import { CircuitBreakerBadges } from "../_components/circuit-breaker-badges";
+import { CircuitBreakerBadge } from "@/components/shared/circuit-breaker-badge";
 import { DnsRecords } from "../_components/dns-records";
 import { DomainRetireButton } from "../_components/domain-retire-button";
 import { VerifyButton } from "../_components/verify-button";
@@ -93,7 +93,11 @@ export default async function DomainDetailPage({
             </div>
             <div className="summary-row">
               <span className="text-sm font-medium">Circuit breaker</span>
-              <CircuitBreakerBadges state={domain.breaker} />
+              <CircuitBreakerBadge
+                scope="domain"
+                entityId={domain.id}
+                state={domain.breaker}
+              />
             </div>
             <div className="summary-row">
               <span className="text-sm font-medium">Created</span>

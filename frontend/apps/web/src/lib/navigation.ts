@@ -105,6 +105,13 @@ const dashboardNavigation: NavigationSection[] = [
         keywords: ["throttle", "queue", "worker", "celery", "backlog"],
         roles: ["admin"],
       },
+      {
+        href: "/ops/circuit-breakers",
+        label: "Circuit breakers",
+        description: "Four-scope breaker matrix — diagnose trips and reset with justification.",
+        keywords: ["breaker", "bounce", "complaint", "trip", "reset", "incident"],
+        roles: ["admin"],
+      },
     ],
   },
   {
