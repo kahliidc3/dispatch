@@ -38,6 +38,8 @@ export const apiEndpoints = {
     unsubscribe: (id: string) => `/contacts/${id}/unsubscribe`,
     bulkUnsubscribe: "/contacts/bulk-unsubscribe",
     bulkImport: "/contacts/bulk-import",
+    importJob: (id: string) => `/contacts/bulk-import/${id}`,
+    importJobErrors: (id: string) => `/contacts/bulk-import/${id}/errors`,
   },
   lists: {
     list: "/lists",
