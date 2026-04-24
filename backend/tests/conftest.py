@@ -12,6 +12,7 @@ from libs.core.auth import models as auth_models  # noqa: F401
 from libs.core.auth.models import User
 from libs.core.auth.repository import AuthRepository
 from libs.core.auth.service import AuthService, InMemoryLoginAttemptStore, UserService
+from libs.core.campaigns import models as campaigns_models  # noqa: F401
 from libs.core.config import Settings, get_settings, reset_settings_cache
 from libs.core.contacts import models as contacts_models  # noqa: F401
 from libs.core.contacts.service import ContactService
@@ -21,12 +22,19 @@ from libs.core.db.uow import UnitOfWork
 from libs.core.domains import models as domains_models  # noqa: F401
 from libs.core.domains.schemas import DnsRecordType
 from libs.core.domains.service import DomainService
+from libs.core.events import models as events_models  # noqa: F401
 from libs.core.imports import models as imports_models  # noqa: F401
 from libs.core.imports.service import ImportService, MXLookupAdapter
 from libs.core.lists import models as lists_models  # noqa: F401
 from libs.core.lists.service import ListService
+from libs.core.segments import models as segments_models  # noqa: F401
+from libs.core.segments.service import SegmentService
 from libs.core.sender_profiles import models as sender_profiles_models  # noqa: F401
 from libs.core.sender_profiles.service import SenderProfileService
+from libs.core.suppression import models as suppression_models  # noqa: F401
+from libs.core.suppression.service import SuppressionService
+from libs.core.templates import models as templates_models  # noqa: F401
+from libs.core.templates.service import TemplateService
 from libs.dns_provisioner.base import DNSVerificationAdapter, normalize_dns_value
 
 
@@ -63,7 +71,10 @@ class AuthTestContext:
     sender_profile_service: SenderProfileService
     contact_service: ContactService
     list_service: ListService
+    segment_service: SegmentService
     import_service: ImportService
+    suppression_service: SuppressionService
+    template_service: TemplateService
     mx_lookup: FakeMXLookupAdapter
     dns_adapter: FakeDNSVerificationAdapter
     session_factory: async_sessionmaker[AsyncSession]
@@ -88,6 +99,8 @@ async def auth_test_context(
         "IMPORT_STORAGE_ROOT",
         str((tmp_path / "import-storage").resolve()),
     )
+    monkeypatch.setenv("SUPPRESSION_SES_SYNC_ENABLED", "false")
+    monkeypatch.setenv("SUPPRESSION_MAX_REMOVALS_PER_DAY", "2")
 
     reset_settings_cache()
     await db_session.dispose_db()
@@ -104,8 +117,11 @@ async def auth_test_context(
     sender_profile_service = SenderProfileService()
     contact_service = ContactService(settings)
     list_service = ListService()
+    segment_service = SegmentService(settings)
     mx_lookup = FakeMXLookupAdapter()
     import_service = ImportService(settings, mx_lookup=mx_lookup)
+    suppression_service = SuppressionService(settings)
+    template_service = TemplateService(settings)
     context = AuthTestContext(
         settings=settings,
         auth_service=auth_service,
@@ -114,7 +130,10 @@ async def auth_test_context(
         sender_profile_service=sender_profile_service,
         contact_service=contact_service,
         list_service=list_service,
+        segment_service=segment_service,
         import_service=import_service,
+        suppression_service=suppression_service,
+        template_service=template_service,
         mx_lookup=mx_lookup,
         dns_adapter=dns_adapter,
         session_factory=db_session.get_session_factory(),

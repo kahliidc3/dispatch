@@ -71,6 +71,15 @@ class Settings(BaseSettings):
     import_disposable_domains: str = (
         "mailinator.com,10minutemail.com,tempmail.com,guerrillamail.com"
     )
+    suppression_cache_ttl_seconds: int = Field(default=30, ge=1, le=60)
+    suppression_max_removals_per_day: int = Field(default=25, ge=1, le=10000)
+    suppression_ses_sync_enabled: bool = False
+    suppression_ses_sync_batch_size: int = Field(default=100, ge=1, le=1000)
+    suppression_ses_sync_pause_ms: int = Field(default=25, ge=0, le=5000)
+    suppression_ses_sync_max_records_per_run: int = Field(default=1000, ge=1, le=100000)
+    public_unsubscribe_base_url: str = "http://localhost:8000"
+    sns_signature_cert_cache_ttl_seconds: int = Field(default=3600, ge=60, le=86400)
+    event_dedup_ttl_seconds: int = Field(default=60 * 60 * 24 * 7, ge=60, le=60 * 60 * 24 * 30)
 
     @property
     def session_cookie_secure(self) -> bool:

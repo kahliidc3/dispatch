@@ -12,6 +12,7 @@ from libs.core.analytics.service import AnalyticsService
 from libs.core.auth.models import User
 from libs.core.auth.schemas import CurrentActor
 from libs.core.auth.service import AuthService, UserService, get_auth_service
+from libs.core.campaigns.service import CampaignService, get_campaign_service
 from libs.core.config import Settings, get_settings
 from libs.core.contacts.service import ContactService, get_contact_service
 from libs.core.db.session import get_session
@@ -19,7 +20,10 @@ from libs.core.domains.service import DomainService, get_domain_service
 from libs.core.errors import PermissionDeniedError
 from libs.core.imports.service import ImportService, get_import_service
 from libs.core.lists.service import ListService, get_list_service
+from libs.core.segments.service import SegmentService, get_segment_service
 from libs.core.sender_profiles.service import SenderProfileService, get_sender_profile_service
+from libs.core.suppression.service import SuppressionService, get_suppression_service
+from libs.core.templates.service import TemplateService, get_template_service
 
 bearer_scheme = HTTPBearer(auto_error=False)
 
@@ -67,12 +71,28 @@ def get_contact_service_dep() -> ContactService:
     return get_contact_service()
 
 
+def get_campaign_service_dep() -> CampaignService:
+    return get_campaign_service()
+
+
 def get_list_service_dep() -> ListService:
     return get_list_service()
 
 
 def get_import_service_dep() -> ImportService:
     return get_import_service()
+
+
+def get_template_service_dep() -> TemplateService:
+    return get_template_service()
+
+
+def get_segment_service_dep() -> SegmentService:
+    return get_segment_service()
+
+
+def get_suppression_service_dep() -> SuppressionService:
+    return get_suppression_service()
 
 
 async def get_current_actor(

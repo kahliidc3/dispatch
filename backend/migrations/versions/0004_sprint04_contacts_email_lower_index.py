@@ -1,7 +1,7 @@
 """Sprint 04 contact uniqueness hardening.
 
-Revision ID: 0004_sprint04_contacts_email_lower_index
-Revises: 0003_sprint03_identity_infrastructure
+Revision ID: 0004_contacts_email_idx
+Revises: 0003_identity_infra
 Create Date: 2026-04-23
 """
 
@@ -13,8 +13,8 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = "0004_sprint04_contacts_email_lower_index"
-down_revision: str | None = "0003_sprint03_identity_infrastructure"
+revision: str = "0004_contacts_email_idx"
+down_revision: str | None = "0003_identity_infra"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

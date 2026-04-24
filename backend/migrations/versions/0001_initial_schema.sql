@@ -571,7 +571,7 @@ CREATE TABLE rolling_metrics (
     id              UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
     scope_type      TEXT         NOT NULL,
     scope_id        UUID         NOT NULL,
-    window          TEXT         NOT NULL CHECK (window IN ('1h','6h','24h','7d','30d')),
+    "window"        TEXT         NOT NULL CHECK ("window" IN ('1h','6h','24h','7d','30d')),
     window_end      TIMESTAMPTZ  NOT NULL,
     sends           INT          NOT NULL DEFAULT 0,
     deliveries      INT          NOT NULL DEFAULT 0,
@@ -584,7 +584,7 @@ CREATE TABLE rolling_metrics (
     bounce_rate     NUMERIC(5,4) GENERATED ALWAYS AS (CASE WHEN sends = 0 THEN 0 ELSE bounces::numeric / sends END) STORED,
     complaint_rate  NUMERIC(5,4) GENERATED ALWAYS AS (CASE WHEN sends = 0 THEN 0 ELSE complaints::numeric / sends END) STORED,
     updated_at      TIMESTAMPTZ  NOT NULL DEFAULT now(),
-    UNIQUE (scope_type, scope_id, window)
+    UNIQUE (scope_type, scope_id, "window")
 );
 
 CREATE INDEX idx_rolling_metrics_scope ON rolling_metrics(scope_type, scope_id);
@@ -684,7 +684,7 @@ SELECT
     cb.state AS breaker_state,
     d.updated_at
 FROM domains d
-LEFT JOIN rolling_metrics rm ON rm.scope_type = 'domain' AND rm.scope_id = d.id AND rm.window = '24h'
+LEFT JOIN rolling_metrics rm ON rm.scope_type = 'domain' AND rm.scope_id = d.id AND rm."window" = '24h'
 LEFT JOIN circuit_breaker_state cb ON cb.scope_type = 'domain' AND cb.scope_id = d.id;
 
 CREATE UNIQUE INDEX ON mv_domain_health (domain_id);

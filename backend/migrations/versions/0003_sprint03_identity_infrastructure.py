@@ -1,7 +1,7 @@
 """Sprint 03 identity infrastructure deltas.
 
-Revision ID: 0003_sprint03_identity_infrastructure
-Revises: 0002_auth_sessions_and_api_key_last4
+Revision ID: 0003_identity_infra
+Revises: 0002_auth_sessions
 Create Date: 2026-04-23
 """
 
@@ -14,8 +14,8 @@ from alembic import op
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision: str = "0003_sprint03_identity_infrastructure"
-down_revision: str | None = "0002_auth_sessions_and_api_key_last4"
+revision: str = "0003_identity_infra"
+down_revision: str | None = "0002_auth_sessions"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

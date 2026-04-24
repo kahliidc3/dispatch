@@ -27,6 +27,7 @@ from libs.core.errors import (
     PermissionDeniedError,
     ValidationError,
 )
+from libs.core.suppression.service import get_suppression_service
 
 _TERMINAL_CONTACT_STATUSES = {"bounced", "complained", "unsubscribed", "suppressed", "deleted"}
 
@@ -258,7 +259,7 @@ class ContactService:
         user_agent: str | None,
     ) -> Contact:
         self._require_admin(actor)
-        return await self._unsubscribe_internal(
+        contact = await self._unsubscribe_internal(
             contact_id=contact_id,
             reason=reason,
             actor_type=actor.actor_type,
@@ -267,6 +268,12 @@ class ContactService:
             ip_address=ip_address,
             user_agent=user_agent,
         )
+        await get_suppression_service().upsert_system_suppression(
+            email=contact.email,
+            reason_code="unsubscribe",
+            source="contact_unsubscribe",
+        )
+        return contact
 
     async def unsubscribe_public(
         self,
@@ -279,7 +286,7 @@ class ContactService:
         contact_id = payload.get("contact_id")
         if not isinstance(contact_id, str) or not contact_id:
             raise AuthenticationError("Invalid unsubscribe token")
-        return await self._unsubscribe_internal(
+        contact = await self._unsubscribe_internal(
             contact_id=contact_id,
             reason="public_unsubscribe",
             actor_type="system",
@@ -288,6 +295,12 @@ class ContactService:
             ip_address=ip_address,
             user_agent=user_agent,
         )
+        await get_suppression_service().upsert_system_suppression(
+            email=contact.email,
+            reason_code="unsubscribe",
+            source="public_unsubscribe",
+        )
+        return contact
 
     async def create_unsubscribe_token(self, *, actor: CurrentActor, contact_id: str) -> str:
         self._require_admin(actor)

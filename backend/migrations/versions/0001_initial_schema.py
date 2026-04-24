@@ -23,7 +23,10 @@ _SCHEMA_SQL_PATH = Path(__file__).with_name("0001_initial_schema.sql")
 
 def upgrade() -> None:
     bind = op.get_bind()
-    bind.exec_driver_sql(_SCHEMA_SQL_PATH.read_text(encoding="utf-8"))
+    bind.exec_driver_sql(
+        _SCHEMA_SQL_PATH.read_text(encoding="utf-8"),
+        execution_options={"no_parameters": True},
+    )
 
 
 def downgrade() -> None:
