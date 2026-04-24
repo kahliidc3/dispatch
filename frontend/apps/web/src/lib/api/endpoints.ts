@@ -19,8 +19,16 @@ export const apiEndpoints = {
   domains: {
     list: "/domains",
     byId: (id: string) => `/domains/${id}`,
+    create: "/domains",
+    verify: (id: string) => `/domains/${id}/verify`,
     health: (id: string) => `/domains/${id}/health`,
     retire: (id: string) => `/domains/${id}/retire`,
+  },
+  senderProfiles: {
+    list: "/sender-profiles",
+    byId: (id: string) => `/sender-profiles/${id}`,
+    create: "/sender-profiles",
+    delete: (id: string) => `/sender-profiles/${id}`,
   },
   contacts: {
     list: "/contacts",

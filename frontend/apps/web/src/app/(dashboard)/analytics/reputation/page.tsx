@@ -1,11 +1,14 @@
 import { Badge } from "@/components/ui/badge";
 import { DataTable } from "@/components/shared/data-table";
-import { domains } from "../../domains/_lib/domains-queries";
+import { domainList } from "../../domains/_lib/domains-queries";
 
-const reputationVariant = {
-  warming: "warning",
-  healthy: "success",
-  cooling: "outline",
+const statusVariant = {
+  pending: "muted",
+  verifying: "warning",
+  verified: "success",
+  cooling: "warning",
+  burnt: "danger",
+  retired: "outline",
 } as const;
 
 export default function ReputationPage() {
@@ -21,20 +24,16 @@ export default function ReputationPage() {
         </div>
       </header>
       <DataTable
-        caption="Static reputation placeholder"
+        caption="Domain status overview"
         columns={[
           { key: "domain", label: "Domain" },
-          { key: "verification", label: "Verification" },
-          { key: "reputation", label: "Reputation" },
+          { key: "status", label: "Status" },
           { key: "breaker", label: "Breaker" },
         ]}
-        rows={domains.map((domain) => ({
+        rows={domainList.map((domain) => ({
           domain: domain.name,
-          verification: domain.verification,
-          reputation: (
-            <Badge variant={reputationVariant[domain.reputation]}>
-              {domain.reputation}
-            </Badge>
+          status: (
+            <Badge variant={statusVariant[domain.status]}>{domain.status}</Badge>
           ),
           breaker: domain.breaker,
         }))}

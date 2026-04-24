@@ -60,8 +60,14 @@ const dashboardNavigation: NavigationSection[] = [
       {
         href: "/domains",
         label: "Domains",
-        description: "Domain health, verification, and breaker state surfaces.",
-        keywords: ["dns", "health", "warmup", "breaker"],
+        description: "Add domains, verify DNS records, and manage domain lifecycle.",
+        keywords: ["dns", "health", "warmup", "breaker", "verify"],
+      },
+      {
+        href: "/sender-profiles",
+        label: "Sender profiles",
+        description: "From addresses and display names bound to verified domains.",
+        keywords: ["from", "email", "sender", "profile", "ip pool"],
       },
       {
         href: "/analytics",

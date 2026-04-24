@@ -67,9 +67,10 @@ export function Sidebar({ session }: SidebarProps) {
         ))}
       </nav>
       <div className="surface-panel-muted p-4">
-        <p className="text-sm font-medium">Sprint 01 status</p>
+        <p className="text-sm font-medium">Sprint 03 status</p>
         <p className="mt-2 text-sm text-text-muted">
-          Core shell, typed request layer, and shared primitives are active.
+          Domains, DNS record viewer, verify flow, and sender profiles are
+          active.
         </p>
       </div>
     </aside>

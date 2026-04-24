@@ -1,23 +1,17 @@
-import { EmptyState } from "@/components/shared/empty-state";
-import { DomainHealthGrid } from "./_components/domain-health-grid";
+import { PageIntro } from "@/components/patterns/page-intro";
+import { domainList } from "./_lib/domains-queries";
+import { AddDomainDialog } from "./_components/add-domain-dialog";
+import { DomainsTable } from "./_components/domains-table";
 
 export default function DomainsPage() {
   return (
     <div className="page-stack">
-      <header className="page-header">
-        <div>
-          <h1 className="page-title">Domains</h1>
-          <p className="page-description">
-            Manual verification and sender profile flows come later. The route,
-            nested detail page, and baseline health table are scaffolded now.
-          </p>
-        </div>
-      </header>
-      <DomainHealthGrid />
-      <EmptyState
-        title="Provisioning workflow placeholder"
-        description="Add-domain dialogs, DNS record views, and sender profile actions are deferred to later sprints."
+      <PageIntro
+        title="Domains"
+        description="Add sending domains, set up DNS records, verify ownership, and manage domain lifecycle."
+        actions={<AddDomainDialog />}
       />
+      <DomainsTable initialDomains={domainList} />
     </div>
   );
 }
