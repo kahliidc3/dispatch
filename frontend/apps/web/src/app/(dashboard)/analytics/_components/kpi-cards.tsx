@@ -1,30 +1,30 @@
-const metrics = [
-  { label: "Sends today", value: "18,240" },
-  { label: "Bounce rate", value: "0.42%" },
-  { label: "Complaint rate", value: "0.01%" },
-  { label: "Open rate", value: "37.8%" },
-];
+import type { OverviewKpi } from "../_lib/analytics-queries";
 
-export function KpiCards() {
+type KpiCardsProps = {
+  kpis: OverviewKpi[];
+};
+
+export function KpiCards({ kpis }: KpiCardsProps) {
   return (
-    <section className="surface-panel p-6">
-      <div className="page-stack">
-        <div>
-          <h2 className="section-title">Summary</h2>
-          <p className="page-description">
-            Placeholder analytics values based on static data.
-          </p>
-        </div>
-        <div className="grid gap-4 md:grid-cols-2">
-          {metrics.map((metric) => (
-            <div key={metric.label} className="surface-panel-muted p-4">
-              <p className="text-sm text-text-muted">{metric.label}</p>
-              <p className="mt-2 text-xl font-semibold tracking-[-0.02em]">
-                {metric.value}
-              </p>
-            </div>
-          ))}
-        </div>
+    <section aria-label="Key performance indicators">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {kpis.map((kpi) => (
+          <div key={kpi.label} className="surface-panel p-5">
+            <p className="text-xs font-medium uppercase tracking-wide text-text-muted">
+              {kpi.label}
+            </p>
+            <p className="mt-2 text-2xl font-semibold tabular-nums tracking-tight">
+              {kpi.value}
+            </p>
+            <p
+              className={`mt-1 text-xs ${
+                kpi.trendPositive ? "text-success" : "text-danger"
+              }`}
+            >
+              {kpi.trendValue}
+            </p>
+          </div>
+        ))}
       </div>
     </section>
   );

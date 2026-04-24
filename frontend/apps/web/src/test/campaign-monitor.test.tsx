@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { CampaignMonitor } from "@/app/(dashboard)/campaigns/[campaignId]/_components/campaign-monitor";
 import { CampaignHeader } from "@/app/(dashboard)/campaigns/[campaignId]/_components/campaign-header";
