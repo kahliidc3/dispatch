@@ -1,5 +1,4 @@
-import { CampaignForm } from "./_components/campaign-form";
-import { LaunchActions } from "./_components/launch-actions";
+import { CampaignWizard } from "./_components/campaign-wizard";
 
 export default function CampaignCreatePage() {
   return (
@@ -8,13 +7,11 @@ export default function CampaignCreatePage() {
         <div>
           <h1 className="page-title">Create campaign</h1>
           <p className="page-description">
-            Wizard orchestration is deferred. Sprint 00 reserves the nested
-            route and placeholder composition for the future authoring flow.
+            Build and launch a campaign in a few steps.
           </p>
         </div>
       </header>
-      <CampaignForm />
-      <LaunchActions />
+      <CampaignWizard />
     </div>
   );
 }

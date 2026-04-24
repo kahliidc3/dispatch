@@ -76,7 +76,10 @@ export const apiEndpoints = {
   },
   campaigns: {
     list: "/campaigns",
+    create: "/campaigns",
     byId: (id: string) => `/campaigns/${id}`,
+    update: (id: string) => `/campaigns/${id}`,
+    preflight: (id: string) => `/campaigns/${id}/preflight`,
     launch: (id: string) => `/campaigns/${id}/launch`,
     pause: (id: string) => `/campaigns/${id}/pause`,
     resume: (id: string) => `/campaigns/${id}/resume`,
