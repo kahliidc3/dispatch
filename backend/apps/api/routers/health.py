@@ -2,7 +2,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends
 
-from apps.api.deps import get_analytics_service
+from apps.api.deps import get_analytics_service_dep as get_analytics_service
 from libs.core.analytics.schemas import ReadinessResponse
 from libs.core.analytics.service import AnalyticsService
 from libs.core.errors import ExternalServiceError

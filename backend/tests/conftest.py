@@ -8,11 +8,14 @@ import pytest
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from libs.core.analytics.service import AnalyticsService, reset_analytics_service_cache
 from libs.core.auth import models as auth_models  # noqa: F401
 from libs.core.auth.models import User
 from libs.core.auth.repository import AuthRepository
 from libs.core.auth.service import AuthService, InMemoryLoginAttemptStore, UserService
 from libs.core.campaigns import models as campaigns_models  # noqa: F401
+from libs.core.circuit_breaker import models as circuit_breaker_models  # noqa: F401
+from libs.core.circuit_breaker.service import reset_circuit_breaker_service_cache
 from libs.core.config import Settings, get_settings, reset_settings_cache
 from libs.core.contacts import models as contacts_models  # noqa: F401
 from libs.core.contacts.service import ContactService
@@ -75,6 +78,7 @@ class AuthTestContext:
     import_service: ImportService
     suppression_service: SuppressionService
     template_service: TemplateService
+    analytics_service: AnalyticsService
     mx_lookup: FakeMXLookupAdapter
     dns_adapter: FakeDNSVerificationAdapter
     session_factory: async_sessionmaker[AsyncSession]
@@ -103,6 +107,7 @@ async def auth_test_context(
     monkeypatch.setenv("SUPPRESSION_MAX_REMOVALS_PER_DAY", "2")
 
     reset_settings_cache()
+    reset_circuit_breaker_service_cache()
     await db_session.dispose_db()
     settings = get_settings()
 
@@ -122,6 +127,7 @@ async def auth_test_context(
     import_service = ImportService(settings, mx_lookup=mx_lookup)
     suppression_service = SuppressionService(settings)
     template_service = TemplateService(settings)
+    analytics_service = AnalyticsService(settings)
     context = AuthTestContext(
         settings=settings,
         auth_service=auth_service,
@@ -134,6 +140,7 @@ async def auth_test_context(
         import_service=import_service,
         suppression_service=suppression_service,
         template_service=template_service,
+        analytics_service=analytics_service,
         mx_lookup=mx_lookup,
         dns_adapter=dns_adapter,
         session_factory=db_session.get_session_factory(),
@@ -143,7 +150,9 @@ async def auth_test_context(
         yield context
     finally:
         await db_session.dispose_db()
+        reset_circuit_breaker_service_cache()
         reset_settings_cache()
+        reset_analytics_service_cache()
 
 
 async def create_test_user(

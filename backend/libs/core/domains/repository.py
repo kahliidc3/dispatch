@@ -37,6 +37,8 @@ class DomainRepository:
         ses_region: str,
         mail_from_domain: str,
         default_configuration_set_id: str | None,
+        rate_limit_per_hour: int,
+        metadata_json: dict[str, object] | None = None,
     ) -> Domain:
         domain = Domain(
             name=name,
@@ -45,6 +47,8 @@ class DomainRepository:
             ses_region=ses_region,
             mail_from_domain=mail_from_domain,
             default_configuration_set_id=default_configuration_set_id,
+            rate_limit_per_hour=rate_limit_per_hour,
+            metadata_json=metadata_json or {},
         )
         self.session.add(domain)
         await self.session.flush()
@@ -70,6 +74,18 @@ class DomainRepository:
             )
         )
         await self.session.execute(stmt)
+
+    async def update_domain_fields(self, *, domain_id: str, values: dict[str, object]) -> bool:
+        if not values:
+            return False
+        stmt = (
+            update(Domain)
+            .where(Domain.id == domain_id)
+            .values(**values)
+            .execution_options(synchronize_session="fetch")
+        )
+        result = await self.session.execute(stmt)
+        return bool(getattr(result, "rowcount", 0))
 
     async def retire_domain(self, *, domain_id: str, reason: str) -> bool:
         stmt = (
@@ -116,6 +132,110 @@ class DomainRepository:
         )
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
+
+    async def list_all_dns_records_for_domain(self, domain_id: str) -> list[DomainDnsRecord]:
+        stmt = (
+            select(DomainDnsRecord)
+            .where(DomainDnsRecord.domain_id == domain_id)
+            .order_by(DomainDnsRecord.created_at.asc())
+        )
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def get_active_dns_record_by_signature(
+        self,
+        *,
+        domain_id: str,
+        record_type: str,
+        name: str,
+        purpose: str,
+    ) -> DomainDnsRecord | None:
+        stmt = (
+            select(DomainDnsRecord)
+            .where(DomainDnsRecord.domain_id == domain_id)
+            .where(DomainDnsRecord.is_active.is_(True))
+            .where(DomainDnsRecord.record_type == record_type)
+            .where(func.lower(DomainDnsRecord.name) == name.lower())
+            .where(DomainDnsRecord.purpose == purpose)
+            .limit(1)
+        )
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()
+
+    async def create_dns_record(
+        self,
+        *,
+        domain_id: str,
+        record_type: str,
+        name: str,
+        value: str,
+        purpose: str,
+        priority: int | None,
+        provider_record_id: str | None = None,
+        verification_status: str = "pending",
+    ) -> DomainDnsRecord:
+        row = DomainDnsRecord(
+            domain_id=domain_id,
+            record_type=record_type,
+            name=name,
+            value=value,
+            purpose=purpose,
+            priority=priority,
+            provider_record_id=provider_record_id,
+            verification_status=verification_status,
+            is_active=True,
+        )
+        self.session.add(row)
+        await self.session.flush()
+        return row
+
+    async def update_dns_record(
+        self,
+        *,
+        record_id: str,
+        values: dict[str, object],
+    ) -> bool:
+        if not values:
+            return False
+        stmt = (
+            update(DomainDnsRecord)
+            .where(DomainDnsRecord.id == record_id)
+            .values(**values)
+            .execution_options(synchronize_session="fetch")
+        )
+        result = await self.session.execute(stmt)
+        return bool(getattr(result, "rowcount", 0))
+
+    async def deactivate_dns_records_except(
+        self,
+        *,
+        domain_id: str,
+        keep_record_ids: list[str],
+    ) -> int:
+        stmt = update(DomainDnsRecord).where(DomainDnsRecord.domain_id == domain_id).where(
+            DomainDnsRecord.is_active.is_(True)
+        )
+        if keep_record_ids:
+            stmt = stmt.where(DomainDnsRecord.id.not_in(keep_record_ids))
+        stmt = stmt.values(is_active=False).execution_options(synchronize_session="fetch")
+        result = await self.session.execute(stmt)
+        return int(getattr(result, "rowcount", 0) or 0)
+
+    async def find_dns_record_by_provider_id(
+        self,
+        *,
+        domain_id: str,
+        provider_record_id: str,
+    ) -> DomainDnsRecord | None:
+        stmt = (
+            select(DomainDnsRecord)
+            .where(DomainDnsRecord.domain_id == domain_id)
+            .where(DomainDnsRecord.provider_record_id == provider_record_id)
+            .where(DomainDnsRecord.is_active.is_(True))
+            .limit(1)
+        )
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()
 
     async def update_dns_record_verification(
         self,

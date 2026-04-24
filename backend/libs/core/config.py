@@ -31,14 +31,25 @@ class Settings(BaseSettings):
     aws_secret_access_key: str | None = None
     aws_session_token: str | None = None
     localstack_endpoint_url: str = "http://localhost:4566"
+    cloudflare_api_base_url: str = "https://api.cloudflare.com/client/v4"
+    cloudflare_api_token_secret_name: str | None = None
+    route53_default_hosted_zone_id: str | None = None
 
     ses_region: str = "us-east-1"
     ses_sns_topic_arn: str = "arn:aws:sns:us-east-1:000000000000:dispatch-local-events"
+    domain_provisioning_poll_interval_seconds: int = Field(default=10, ge=1, le=120)
+    domain_provisioning_timeout_seconds: int = Field(default=300, ge=30, le=3600)
 
     default_domain_hourly_rate_limit: int = 150
     default_campaign_hourly_rate_limit: int = 100
     bounce_rate_alarm: float = Field(default=0.015, ge=0.0, le=1.0)
     complaint_rate_alarm: float = Field(default=0.0005, ge=0.0, le=1.0)
+    throttle_bucket_ttl_seconds: int = Field(default=60 * 60 * 2, ge=60, le=60 * 60 * 24)
+    throttle_fail_closed_retry_seconds: int = Field(default=60, ge=1, le=600)
+    circuit_breaker_cache_ttl_seconds: int = Field(default=10, ge=1, le=300)
+    circuit_breaker_auto_reset_hours: int = Field(default=24, ge=1, le=168)
+    circuit_breaker_recheck_delay_seconds: int = Field(default=60, ge=1, le=600)
+    circuit_breaker_trip_consecutive_evaluations: int = Field(default=1, ge=1, le=10)
 
     ml_scorer_enabled: bool = False
     reply_intent_enabled: bool = False

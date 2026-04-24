@@ -9,7 +9,13 @@ from pydantic import BaseModel, Field
 from libs.core.domains.models import Domain, DomainDnsRecord, IPPool, SESConfigurationSet
 
 DomainProvider = Literal["cloudflare", "route53", "godaddy", "manual"]
-DomainVerificationStatus = Literal["pending", "verified", "failed", "disabled"]
+DomainVerificationStatus = Literal[
+    "pending",
+    "verified",
+    "failed",
+    "disabled",
+    "provisioning_failed",
+]
 DnsRecordVerificationStatus = Literal["pending", "verified", "failed"]
 DomainReputationStatus = Literal["warming", "healthy", "cooling", "burnt", "retired"]
 
@@ -29,6 +35,12 @@ class DomainCreateRequest(BaseModel):
     ses_region: str = "us-east-1"
     default_configuration_set_name: str | None = None
     event_destination_sns_topic_arn: str | None = None
+    route53_hosted_zone_id: str | None = None
+    cloudflare_zone_id: str | None = None
+
+
+class DomainProvisionRequest(BaseModel):
+    force: bool = False
 
 
 class DomainRetireRequest(BaseModel):
@@ -81,6 +93,7 @@ class DomainResponse(BaseModel):
     custom_tracking_domain: str | None
     reputation_status: DomainReputationStatus
     daily_send_limit: int
+    rate_limit_per_hour: int
     retired_at: datetime | None
     retirement_reason: str | None
     default_configuration_set_id: str | None
@@ -113,6 +126,7 @@ class DomainResponse(BaseModel):
             custom_tracking_domain=domain.custom_tracking_domain,
             reputation_status=cast(DomainReputationStatus, domain.reputation_status),
             daily_send_limit=domain.daily_send_limit,
+            rate_limit_per_hour=domain.rate_limit_per_hour,
             retired_at=domain.retired_at,
             retirement_reason=domain.retirement_reason,
             default_configuration_set_id=domain.default_configuration_set_id,
@@ -134,6 +148,29 @@ class DomainVerifyResponse(BaseModel):
     fully_verified: bool
     verified_records: int
     total_records: int
+
+
+class DomainProvisioningStepResponse(BaseModel):
+    name: str
+    status: str
+    at: datetime
+    message: str | None = None
+
+
+class DomainProvisioningStatusResponse(BaseModel):
+    domain_id: str
+    run_id: str | None = None
+    status: str = "not_started"
+    reason_code: str | None = None
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+    steps: list[DomainProvisioningStepResponse] = Field(default_factory=list)
+
+
+class DomainProvisionEnqueueResponse(BaseModel):
+    domain_id: str
+    run_id: str
+    status: str
 
 
 class SESConfigurationSetCreateRequest(BaseModel):

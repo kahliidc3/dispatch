@@ -249,7 +249,9 @@ _SQLITE_MESSAGE_STATUS_TRANSITION_TRIGGER = DDL(  # type: ignore[no-untyped-call
     FOR EACH ROW
     WHEN NOT (
         NEW.status = OLD.status
+        OR (OLD.status = 'queued' AND NEW.status = 'paused')
         OR (OLD.status = 'queued' AND NEW.status = 'sending')
+        OR (OLD.status = 'paused' AND NEW.status IN ('queued','failed'))
         OR (OLD.status = 'sending' AND NEW.status IN ('sent','failed'))
         OR (OLD.status = 'sent' AND NEW.status IN ('delivered','bounced','complained'))
     )
@@ -270,7 +272,9 @@ _POSTGRES_MESSAGE_STATUS_TRANSITION_TRIGGER = DDL(  # type: ignore[no-untyped-ca
             RETURN NEW;
         END IF;
 
-        IF (OLD.status = 'queued' AND NEW.status = 'sending')
+        IF (OLD.status = 'queued' AND NEW.status = 'paused')
+            OR (OLD.status = 'queued' AND NEW.status = 'sending')
+            OR (OLD.status = 'paused' AND NEW.status IN ('queued','failed'))
             OR (OLD.status = 'sending' AND NEW.status IN ('sent','failed'))
             OR (OLD.status = 'sent' AND NEW.status IN ('delivered','bounced','complained'))
         THEN

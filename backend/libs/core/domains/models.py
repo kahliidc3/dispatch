@@ -58,6 +58,7 @@ class Domain(Base):
     custom_tracking_domain: Mapped[str | None] = mapped_column(Text, nullable=True)
     reputation_status: Mapped[str] = mapped_column(String(20), nullable=False, default="warming")
     daily_send_limit: Mapped[int] = mapped_column(Integer, nullable=False, default=50)
+    rate_limit_per_hour: Mapped[int] = mapped_column(Integer, nullable=False, default=150)
     lifetime_sends: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
     lifetime_bounces: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
     lifetime_complaints: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)

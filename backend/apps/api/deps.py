@@ -7,8 +7,7 @@ from fastapi import Depends, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from libs.core.analytics.repository import AnalyticsRepository
-from libs.core.analytics.service import AnalyticsService
+from libs.core.analytics.service import AnalyticsService, get_analytics_service
 from libs.core.auth.models import User
 from libs.core.auth.schemas import CurrentActor
 from libs.core.auth.service import AuthService, UserService, get_auth_service
@@ -37,16 +36,8 @@ async def get_db_session() -> AsyncIterator[AsyncSession]:
         yield session
 
 
-def get_analytics_repository(
-    session: Annotated[AsyncSession, Depends(get_db_session)],
-) -> AnalyticsRepository:
-    return AnalyticsRepository(session=session)
-
-
-def get_analytics_service(
-    repository: Annotated[AnalyticsRepository, Depends(get_analytics_repository)],
-) -> AnalyticsService:
-    return AnalyticsService(repository=repository)
+def get_analytics_service_dep() -> AnalyticsService:
+    return get_analytics_service()
 
 
 def get_auth_service_dep() -> AuthService:

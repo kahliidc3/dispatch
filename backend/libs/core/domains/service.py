@@ -1,7 +1,11 @@
 from __future__ import annotations
 
+import asyncio
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from functools import lru_cache
+from uuid import uuid4
 
 from libs.core.auth.repository import AuthRepository
 from libs.core.auth.schemas import CurrentActor
@@ -9,6 +13,12 @@ from libs.core.config import Settings, get_settings
 from libs.core.db.session import get_session_factory
 from libs.core.db.uow import UnitOfWork
 from libs.core.domains.models import Domain, DomainDnsRecord, IPPool, SESConfigurationSet
+from libs.core.domains.provisioning import (
+    Boto3SesDomainProvisioner,
+    DomainProvisioningStatus,
+    ProvisioningStep,
+    SesDomainProvisioner,
+)
 from libs.core.domains.repository import DomainRepository
 from libs.core.domains.schemas import (
     DnsRecordType,
@@ -16,12 +26,31 @@ from libs.core.domains.schemas import (
     IPPoolCreateRequest,
     SESConfigurationSetCreateRequest,
 )
-from libs.core.errors import ConflictError, NotFoundError, PermissionDeniedError, ValidationError
+from libs.core.errors import (
+    ConflictError,
+    ExternalServiceError,
+    NotFoundError,
+    PermissionDeniedError,
+    ValidationError,
+)
+from libs.core.logging import get_logger
 from libs.dns_provisioner.base import (
+    AwsSecretsManagerSecretProvider,
+    DNSProvisioner,
     DnsPythonVerificationAdapter,
+    DNSRecordInput,
     DNSVerificationAdapter,
+    ZoneNotFoundError,
     normalize_dns_value,
 )
+from libs.dns_provisioner.cloudflare import CloudflareDNSProvisioner
+from libs.dns_provisioner.route53 import Route53DNSProvisioner
+
+logger = get_logger("core.domains")
+
+_PROVISIONING_METADATA_KEY = "provisioning"
+_PROVISIONING_STATUSES = {"queued", "running", "verified", "failed", "not_started"}
+_DEFAULT_PROVISIONING_STEP = "queued"
 
 
 @dataclass(slots=True)
@@ -45,16 +74,29 @@ class DomainVerificationResult:
         return len(self.dns_records)
 
 
+@dataclass(slots=True, frozen=True)
+class DomainProvisionEnqueueResult:
+    domain_id: str
+    run_id: str
+    status: str
+
+
 class DomainService:
     def __init__(
         self,
         settings: Settings,
         *,
         dns_verifier: DNSVerificationAdapter | None = None,
+        ses_provisioner: SesDomainProvisioner | None = None,
+        dns_secret_provider: AwsSecretsManagerSecretProvider | None = None,
+        sleep: Callable[[float], Awaitable[None]] | None = None,
     ) -> None:
         self._settings = settings
         self._session_factory = get_session_factory()
         self._dns_verifier = dns_verifier or DnsPythonVerificationAdapter()
+        self._ses_provisioner = ses_provisioner or Boto3SesDomainProvisioner(settings)
+        self._dns_secret_provider = dns_secret_provider or AwsSecretsManagerSecretProvider(settings)
+        self._sleep = sleep or asyncio.sleep
 
     async def create_domain(
         self,
@@ -68,6 +110,8 @@ class DomainService:
         event_destination_sns_topic_arn: str | None,
         ip_address: str | None,
         user_agent: str | None,
+        route53_hosted_zone_id: str | None = None,
+        cloudflare_zone_id: str | None = None,
     ) -> DomainDetail:
         self._require_admin(actor)
 
@@ -86,6 +130,11 @@ class DomainService:
             parent_domain=normalized_parent,
             ses_region=ses_region,
             mail_from_domain=mail_from_domain,
+        )
+
+        metadata_json = self._build_domain_metadata(
+            route53_hosted_zone_id=route53_hosted_zone_id,
+            cloudflare_zone_id=cloudflare_zone_id,
         )
 
         async with UnitOfWork(self._session_factory) as uow:
@@ -109,6 +158,8 @@ class DomainService:
                 ses_region=ses_region,
                 mail_from_domain=mail_from_domain,
                 default_configuration_set_id=configuration_set.id,
+                rate_limit_per_hour=self._settings.default_domain_hourly_rate_limit,
+                metadata_json=metadata_json,
             )
             records = await repo.create_dns_records(domain_id=domain.id, records=expected_records)
             await self._write_audit_log(
@@ -173,6 +224,243 @@ class DomainService:
             user_agent="celery:verify_domain_dns",
         )
 
+    async def enqueue_domain_provisioning(
+        self,
+        *,
+        actor: CurrentActor,
+        domain_id: str,
+        force: bool,
+        ip_address: str | None,
+        user_agent: str | None,
+    ) -> DomainProvisionEnqueueResult:
+        self._require_admin(actor)
+
+        async with UnitOfWork(self._session_factory) as uow:
+            repo = DomainRepository(uow.require_session())
+            domain = await repo.get_domain_by_id(domain_id)
+            if domain is None:
+                raise NotFoundError("Domain not found")
+            if domain.reputation_status in {"retired", "burnt"}:
+                raise ConflictError(
+                    f"Domain cannot be provisioned in state {domain.reputation_status}"
+                )
+
+            status = self._provisioning_status_from_domain(domain)
+            if status.status == "running" and not force:
+                raise ConflictError("Domain provisioning is already running")
+            if domain.verification_status == "verified" and not force:
+                return DomainProvisionEnqueueResult(
+                    domain_id=domain.id,
+                    run_id=status.run_id or str(uuid4()),
+                    status="verified",
+                )
+
+            run_id = str(uuid4())
+            queued_step = ProvisioningStep(
+                name=_DEFAULT_PROVISIONING_STEP,
+                status="queued",
+                at=datetime.now(UTC),
+                message="Provisioning task queued",
+            )
+            next_status = DomainProvisioningStatus(
+                domain_id=domain.id,
+                run_id=run_id,
+                status="queued",
+                reason_code=None,
+                started_at=None,
+                completed_at=None,
+                steps=[queued_step],
+            )
+
+            await self._persist_provisioning_state(
+                repo=repo,
+                domain=domain,
+                status=next_status,
+                verification_status="pending",
+            )
+            await AuthRepository(uow.require_session()).write_audit_log(
+                actor_type=actor.actor_type,
+                actor_id=actor.user.id,
+                action="domain.provision.enqueue",
+                resource_type="domain",
+                resource_id=domain.id,
+                after_state=next_status.to_metadata(),
+                ip_address=ip_address,
+                user_agent=user_agent,
+            )
+            return DomainProvisionEnqueueResult(
+                domain_id=domain.id,
+                run_id=run_id,
+                status="queued",
+            )
+
+    async def get_domain_provisioning_status(self, *, domain_id: str) -> DomainProvisioningStatus:
+        async with self._session_factory() as session:
+            repo = DomainRepository(session)
+            domain = await repo.get_domain_by_id(domain_id)
+            if domain is None:
+                raise NotFoundError("Domain not found")
+            return self._provisioning_status_from_domain(domain)
+
+    async def provision_domain_system(
+        self,
+        *,
+        domain_id: str,
+        run_id: str | None,
+    ) -> DomainProvisioningStatus:
+        active_run_id = run_id or str(uuid4())
+        await self._append_provisioning_step(
+            domain_id=domain_id,
+            run_id=active_run_id,
+            step_name="start",
+            step_status="running",
+            message="Provisioning started",
+            set_status="running",
+        )
+
+        try:
+            domain = await self._get_domain_model(domain_id=domain_id)
+            if domain.verification_status == "verified":
+                completed = await self._append_provisioning_step(
+                    domain_id=domain.id,
+                    run_id=active_run_id,
+                    step_name="already_verified",
+                    step_status="completed",
+                    message="Domain is already verified",
+                    set_status="verified",
+                    mark_complete=True,
+                )
+                return completed
+
+            dns_provisioner, zone_id = await self._resolve_dns_provisioner(domain=domain)
+            ses_state = await self._run_provisioning_step(
+                domain_id=domain.id,
+                run_id=active_run_id,
+                step_name="create_ses_identity",
+                step_fn=lambda: self._ses_provisioner.ensure_identity(domain_name=domain.name),
+            )
+
+            config_set = await self._ensure_configuration_set_for_domain(domain=domain)
+            await self._run_provisioning_step(
+                domain_id=domain.id,
+                run_id=active_run_id,
+                step_name="ensure_configuration_set",
+                step_fn=lambda: self._ses_provisioner.ensure_configuration_set(
+                    name=config_set.name,
+                    sns_topic_arn=config_set.event_destination_sns_topic_arn
+                    or self._settings.ses_sns_topic_arn,
+                ),
+            )
+
+            mail_from_domain = domain.mail_from_domain or f"mail.{domain.name}"
+            await self._run_provisioning_step(
+                domain_id=domain.id,
+                run_id=active_run_id,
+                step_name="configure_mail_from",
+                step_fn=lambda: self._ses_provisioner.ensure_mail_from(
+                    domain_name=domain.name,
+                    mail_from_domain=mail_from_domain,
+                ),
+            )
+
+            expected_records = self.build_expected_dns_records(
+                domain_name=domain.name,
+                parent_domain=domain.parent_domain,
+                ses_region=domain.ses_region,
+                mail_from_domain=mail_from_domain,
+                dkim_tokens=ses_state.dkim_tokens,
+            )
+            synced_records = await self._run_provisioning_step(
+                domain_id=domain.id,
+                run_id=active_run_id,
+                step_name="sync_dns_records",
+                step_fn=lambda: self._sync_expected_dns_records(
+                    domain_id=domain.id,
+                    expected_records=expected_records,
+                ),
+            )
+
+            await self._run_provisioning_step(
+                domain_id=domain.id,
+                run_id=active_run_id,
+                step_name="apply_dns_records",
+                step_fn=lambda: self._apply_dns_records_to_provider(
+                    domain_id=domain.id,
+                    dns_provisioner=dns_provisioner,
+                    zone_id=zone_id,
+                    records=synced_records,
+                ),
+            )
+
+            final_identity = await self._run_provisioning_step(
+                domain_id=domain.id,
+                run_id=active_run_id,
+                step_name="poll_ses_verification",
+                step_fn=lambda: self._poll_ses_verification(domain_name=domain.name),
+            )
+
+            await self._run_provisioning_step(
+                domain_id=domain.id,
+                run_id=active_run_id,
+                step_name="verify_dns_state",
+                step_fn=lambda: self._verify_provider_records(
+                    dns_provisioner=dns_provisioner,
+                    zone_id=zone_id,
+                    records=synced_records,
+                ),
+            )
+
+            async with UnitOfWork(self._session_factory) as uow:
+                repo = DomainRepository(uow.require_session())
+                current_domain = await repo.get_domain_by_id(domain.id)
+                if current_domain is None:
+                    raise NotFoundError("Domain not found")
+
+                await repo.update_domain_fields(
+                    domain_id=domain.id,
+                    values={
+                        "verification_status": "verified",
+                        "spf_status": "verified",
+                        "dkim_status": "verified",
+                        "dmarc_status": "verified",
+                        "ses_identity_arn": final_identity.identity_arn,
+                    },
+                )
+                refreshed_domain = await repo.get_domain_by_id(domain.id)
+                if refreshed_domain is None:
+                    raise NotFoundError("Domain not found")
+
+                success_status = await self._append_step_with_repo(
+                    repo=repo,
+                    domain=refreshed_domain,
+                    run_id=active_run_id,
+                    step=ProvisioningStep(
+                        name="complete",
+                        status="completed",
+                        at=datetime.now(UTC),
+                        message="Domain provisioning completed",
+                    ),
+                    set_status="verified",
+                    mark_complete=True,
+                    verification_status="verified",
+                )
+                await AuthRepository(uow.require_session()).write_audit_log(
+                    actor_type="system",
+                    actor_id=None,
+                    action="domain.provision.success",
+                    resource_type="domain",
+                    resource_id=domain.id,
+                    after_state=success_status.to_metadata(),
+                )
+                return success_status
+        except Exception as exc:
+            failure = await self._mark_provisioning_failed(
+                domain_id=domain_id,
+                run_id=active_run_id,
+                exc=exc,
+            )
+            return failure
+
     async def retire_domain(
         self,
         *,
@@ -191,6 +479,9 @@ class DomainService:
             domain = await repo.get_domain_by_id(domain_id)
             if domain is None:
                 raise NotFoundError("Domain not found")
+
+            await self._cleanup_remote_resources(domain=domain, repo=repo)
+            await repo.deactivate_dns_records_except(domain_id=domain.id, keep_record_ids=[])
 
             retired = await repo.retire_domain(domain_id=domain.id, reason=reason)
             if not retired:
@@ -263,6 +554,7 @@ class DomainService:
         parent_domain: str | None,
         ses_region: str,
         mail_from_domain: str,
+        dkim_tokens: list[str] | None = None,
     ) -> list[ExpectedDnsRecord]:
         normalized_domain = self._normalize_domain_name(domain_name)
         normalized_parent = (
@@ -271,6 +563,29 @@ class DomainService:
             else normalized_domain
         )
         normalized_mail_from = self._normalize_domain_name(mail_from_domain)
+        normalized_tokens = [item.strip() for item in (dkim_tokens or []) if item.strip()]
+
+        dkim_records: list[ExpectedDnsRecord] = []
+        if normalized_tokens:
+            for token in normalized_tokens:
+                dkim_records.append(
+                    ExpectedDnsRecord(
+                        record_type=DnsRecordType.CNAME,
+                        name=f"{token}._domainkey.{normalized_domain}",
+                        value=f"{token}.dkim.amazonses.com",
+                        purpose="dkim",
+                    )
+                )
+        else:
+            for selector in ("selector1", "selector2", "selector3"):
+                dkim_records.append(
+                    ExpectedDnsRecord(
+                        record_type=DnsRecordType.CNAME,
+                        name=f"{selector}._domainkey.{normalized_domain}",
+                        value=f"{selector}-{normalized_domain}.dkim.amazonses.com",
+                        purpose="dkim",
+                    )
+                )
 
         return [
             ExpectedDnsRecord(
@@ -279,24 +594,7 @@ class DomainService:
                 value="v=spf1 include:amazonses.com -all",
                 purpose="spf",
             ),
-            ExpectedDnsRecord(
-                record_type=DnsRecordType.CNAME,
-                name=f"selector1._domainkey.{normalized_domain}",
-                value=f"selector1-{normalized_domain}.dkim.amazonses.com",
-                purpose="dkim",
-            ),
-            ExpectedDnsRecord(
-                record_type=DnsRecordType.CNAME,
-                name=f"selector2._domainkey.{normalized_domain}",
-                value=f"selector2-{normalized_domain}.dkim.amazonses.com",
-                purpose="dkim",
-            ),
-            ExpectedDnsRecord(
-                record_type=DnsRecordType.CNAME,
-                name=f"selector3._domainkey.{normalized_domain}",
-                value=f"selector3-{normalized_domain}.dkim.amazonses.com",
-                purpose="dkim",
-            ),
+            *dkim_records,
             ExpectedDnsRecord(
                 record_type=DnsRecordType.TXT,
                 name=f"_dmarc.{normalized_domain}",
@@ -341,11 +639,9 @@ class DomainService:
             if not records:
                 raise ValidationError("Domain has no DNS records to verify")
 
-            verification_results: dict[str, bool] = {}
             for record in records:
                 verified = await self._verify_dns_record(record)
                 await repo.update_dns_record_verification(record_id=record.id, is_verified=verified)
-                verification_results[record.id] = verified
 
             refreshed_records = await repo.list_dns_records_for_domain(domain.id)
             spf_status = self._purpose_status(refreshed_records, purpose="spf")
@@ -402,6 +698,376 @@ class DomainService:
             return any(value.endswith(expected) for value in observed)
         return expected in observed
 
+    async def _resolve_dns_provisioner(self, *, domain: Domain) -> tuple[DNSProvisioner, str]:
+        provider = domain.dns_provider
+        if provider == "cloudflare":
+            provisioner = CloudflareDNSProvisioner(
+                self._settings,
+                secret_provider=self._dns_secret_provider,
+            )
+            explicit_zone_id = self._domain_metadata_value(domain, "cloudflare_zone_id")
+            if isinstance(explicit_zone_id, str) and explicit_zone_id.strip():
+                return provisioner, explicit_zone_id.strip()
+            zone_id = await self._resolve_zone_id_from_list(
+                provisioner=provisioner,
+                preferred_zone_name=domain.parent_domain or domain.name,
+                domain_name=domain.name,
+            )
+            return provisioner, zone_id
+
+        if provider == "route53":
+            provisioner = Route53DNSProvisioner(self._settings)
+            explicit_zone_id = self._domain_metadata_value(domain, "route53_hosted_zone_id")
+            if isinstance(explicit_zone_id, str) and explicit_zone_id.strip():
+                return provisioner, explicit_zone_id.strip()
+            if self._settings.route53_default_hosted_zone_id:
+                return provisioner, self._settings.route53_default_hosted_zone_id.strip()
+            zone_id = await self._resolve_zone_id_from_list(
+                provisioner=provisioner,
+                preferred_zone_name=domain.parent_domain or domain.name,
+                domain_name=domain.name,
+            )
+            return provisioner, zone_id
+
+        raise ValidationError(
+            "Automated provisioning supports cloudflare and route53 providers only"
+        )
+
+    async def _resolve_zone_id_from_list(
+        self,
+        *,
+        provisioner: DNSProvisioner,
+        preferred_zone_name: str,
+        domain_name: str,
+    ) -> str:
+        zones = await provisioner.list_zones()
+        normalized_preferred = self._normalize_domain_name(preferred_zone_name)
+        normalized_domain_name = self._normalize_domain_name(domain_name)
+        candidates = [zone for zone in zones if zone.name == normalized_preferred]
+        if candidates:
+            return candidates[0].id
+
+        suffix_matches = [
+            zone for zone in zones if normalized_domain_name.endswith(zone.name)
+        ]
+        if suffix_matches:
+            suffix_matches.sort(key=lambda item: len(item.name), reverse=True)
+            return suffix_matches[0].id
+        raise ZoneNotFoundError(f"No DNS zone found for domain {domain_name}")
+
+    async def _ensure_configuration_set_for_domain(self, *, domain: Domain) -> SESConfigurationSet:
+        async with UnitOfWork(self._session_factory) as uow:
+            repo = DomainRepository(uow.require_session())
+            config_set = None
+            if domain.default_configuration_set_id:
+                config_set = await repo.get_configuration_set_by_id(
+                    domain.default_configuration_set_id
+                )
+            if config_set is None:
+                config_set = await repo.create_configuration_set(
+                    name=f"{domain.name}-default",
+                    ses_region=domain.ses_region,
+                    event_destination_sns_topic_arn=self._settings.ses_sns_topic_arn,
+                )
+                await repo.update_domain_fields(
+                    domain_id=domain.id,
+                    values={"default_configuration_set_id": config_set.id},
+                )
+            return config_set
+
+    async def _sync_expected_dns_records(
+        self,
+        *,
+        domain_id: str,
+        expected_records: list[ExpectedDnsRecord],
+    ) -> list[DomainDnsRecord]:
+        async with UnitOfWork(self._session_factory) as uow:
+            repo = DomainRepository(uow.require_session())
+            keep_ids: list[str] = []
+            for expected in expected_records:
+                existing = await repo.get_active_dns_record_by_signature(
+                    domain_id=domain_id,
+                    record_type=expected.record_type.value,
+                    name=expected.name,
+                    purpose=expected.purpose,
+                )
+                if existing is None:
+                    created = await repo.create_dns_record(
+                        domain_id=domain_id,
+                        record_type=expected.record_type.value,
+                        name=expected.name,
+                        value=expected.value,
+                        purpose=expected.purpose,
+                        priority=expected.priority,
+                    )
+                    keep_ids.append(created.id)
+                    continue
+
+                await repo.update_dns_record(
+                    record_id=existing.id,
+                    values={
+                        "value": expected.value,
+                        "priority": expected.priority,
+                        "is_active": True,
+                        "verification_status": "pending",
+                    },
+                )
+                keep_ids.append(existing.id)
+
+            await repo.deactivate_dns_records_except(
+                domain_id=domain_id,
+                keep_record_ids=keep_ids,
+            )
+            return await repo.list_dns_records_for_domain(domain_id)
+
+    async def _apply_dns_records_to_provider(
+        self,
+        *,
+        domain_id: str,
+        dns_provisioner: DNSProvisioner,
+        zone_id: str,
+        records: list[DomainDnsRecord],
+    ) -> None:
+        async with UnitOfWork(self._session_factory) as uow:
+            repo = DomainRepository(uow.require_session())
+            for record in records:
+                input_record = DNSRecordInput(
+                    record_type=record.record_type,
+                    name=record.name,
+                    value=record.value,
+                    ttl=300,
+                    priority=record.priority,
+                )
+                provider_record_id = await dns_provisioner.create_record(
+                    zone_id=zone_id,
+                    record=input_record,
+                )
+                await repo.update_dns_record(
+                    record_id=record.id,
+                    values={"provider_record_id": provider_record_id},
+                )
+
+    async def _verify_provider_records(
+        self,
+        *,
+        dns_provisioner: DNSProvisioner,
+        zone_id: str,
+        records: list[DomainDnsRecord],
+    ) -> None:
+        for record in records:
+            check = DNSRecordInput(
+                record_type=record.record_type,
+                name=record.name,
+                value=record.value,
+                ttl=300,
+                priority=record.priority,
+            )
+            is_valid = await dns_provisioner.verify_record(zone_id=zone_id, record=check)
+            if not is_valid:
+                raise ExternalServiceError(
+                    f"DNS record verification failed for {record.record_type} {record.name}"
+                )
+
+    async def _poll_ses_verification(self, *, domain_name: str):
+        timeout = timedelta(seconds=self._settings.domain_provisioning_timeout_seconds)
+        deadline = datetime.now(UTC) + timeout
+        while datetime.now(UTC) < deadline:
+            state = await self._ses_provisioner.get_identity_state(domain_name=domain_name)
+            if state.verified_for_sending and state.dkim_signing_enabled:
+                return state
+            await self._sleep(self._settings.domain_provisioning_poll_interval_seconds)
+        raise ExternalServiceError("SES identity verification timed out")
+
+    async def _run_provisioning_step[T](
+        self,
+        *,
+        domain_id: str,
+        run_id: str,
+        step_name: str,
+        step_fn: Callable[[], Awaitable[T]],
+    ) -> T:
+        await self._append_provisioning_step(
+            domain_id=domain_id,
+            run_id=run_id,
+            step_name=step_name,
+            step_status="running",
+            message=f"{step_name} started",
+            set_status="running",
+        )
+        result = await step_fn()
+        await self._append_provisioning_step(
+            domain_id=domain_id,
+            run_id=run_id,
+            step_name=step_name,
+            step_status="completed",
+            message=f"{step_name} completed",
+            set_status="running",
+        )
+        return result
+
+    async def _append_provisioning_step(
+        self,
+        *,
+        domain_id: str,
+        run_id: str,
+        step_name: str,
+        step_status: str,
+        message: str,
+        set_status: str,
+        mark_complete: bool = False,
+    ) -> DomainProvisioningStatus:
+        async with UnitOfWork(self._session_factory) as uow:
+            repo = DomainRepository(uow.require_session())
+            domain = await repo.get_domain_by_id(domain_id)
+            if domain is None:
+                raise NotFoundError("Domain not found")
+            step = ProvisioningStep(
+                name=step_name,
+                status=step_status,
+                at=datetime.now(UTC),
+                message=message,
+            )
+            return await self._append_step_with_repo(
+                repo=repo,
+                domain=domain,
+                run_id=run_id,
+                step=step,
+                set_status=set_status,
+                mark_complete=mark_complete,
+            )
+
+    async def _append_step_with_repo(
+        self,
+        *,
+        repo: DomainRepository,
+        domain: Domain,
+        run_id: str,
+        step: ProvisioningStep,
+        set_status: str,
+        mark_complete: bool,
+        verification_status: str | None = None,
+        reason_code: str | None = None,
+    ) -> DomainProvisioningStatus:
+        current_status = self._provisioning_status_from_domain(domain)
+        steps = [*current_status.steps, step]
+        started_at = current_status.started_at or datetime.now(UTC)
+        completed_at = datetime.now(UTC) if mark_complete else None
+        next_status = DomainProvisioningStatus(
+            domain_id=domain.id,
+            run_id=run_id,
+            status=set_status if set_status in _PROVISIONING_STATUSES else current_status.status,
+            reason_code=reason_code,
+            started_at=started_at,
+            completed_at=completed_at,
+            steps=steps,
+        )
+        await self._persist_provisioning_state(
+            repo=repo,
+            domain=domain,
+            status=next_status,
+            verification_status=verification_status,
+        )
+        return next_status
+
+    async def _persist_provisioning_state(
+        self,
+        *,
+        repo: DomainRepository,
+        domain: Domain,
+        status: DomainProvisioningStatus,
+        verification_status: str | None = None,
+    ) -> None:
+        metadata_json = dict(domain.metadata_json or {})
+        metadata_json[_PROVISIONING_METADATA_KEY] = status.to_metadata()
+
+        values: dict[str, object] = {"metadata_json": metadata_json}
+        if verification_status is not None:
+            values["verification_status"] = verification_status
+        await repo.update_domain_fields(domain_id=domain.id, values=values)
+
+    async def _mark_provisioning_failed(
+        self,
+        *,
+        domain_id: str,
+        run_id: str,
+        exc: Exception,
+    ) -> DomainProvisioningStatus:
+        reason_code = getattr(exc, "code", "domain_provisioning_failed")
+        message = str(exc) or "Domain provisioning failed"
+        async with UnitOfWork(self._session_factory) as uow:
+            repo = DomainRepository(uow.require_session())
+            domain = await repo.get_domain_by_id(domain_id)
+            if domain is None:
+                raise NotFoundError("Domain not found") from exc
+
+            step = ProvisioningStep(
+                name="failed",
+                status="failed",
+                at=datetime.now(UTC),
+                message=message,
+            )
+            failed_status = await self._append_step_with_repo(
+                repo=repo,
+                domain=domain,
+                run_id=run_id,
+                step=step,
+                set_status="failed",
+                mark_complete=True,
+                verification_status="provisioning_failed",
+                reason_code=str(reason_code),
+            )
+            await AuthRepository(uow.require_session()).write_audit_log(
+                actor_type="system",
+                actor_id=None,
+                action="domain.provision.failed",
+                resource_type="domain",
+                resource_id=domain.id,
+                after_state=failed_status.to_metadata(),
+            )
+            logger.warning(
+                "domains.provision.failed",
+                domain_id=domain.id,
+                reason_code=str(reason_code),
+                error=message,
+            )
+            return failed_status
+
+    async def _cleanup_remote_resources(self, *, domain: Domain, repo: DomainRepository) -> None:
+        if domain.dns_provider in {"cloudflare", "route53"}:
+            try:
+                dns_provisioner, zone_id = await self._resolve_dns_provisioner(domain=domain)
+                active_records = await repo.list_dns_records_for_domain(domain.id)
+                for record in active_records:
+                    if not record.provider_record_id:
+                        continue
+                    await dns_provisioner.delete_record(
+                        zone_id=zone_id,
+                        record_id=record.provider_record_id,
+                    )
+            except Exception as exc:
+                logger.warning(
+                    "domains.retire.remote_dns_cleanup_failed",
+                    domain_id=domain.id,
+                    error=str(exc),
+                )
+
+        try:
+            await self._ses_provisioner.delete_identity(domain_name=domain.name)
+        except Exception as exc:
+            logger.warning(
+                "domains.retire.ses_identity_cleanup_failed",
+                domain_id=domain.id,
+                error=str(exc),
+            )
+
+    async def _get_domain_model(self, *, domain_id: str) -> Domain:
+        async with self._session_factory() as session:
+            repo = DomainRepository(session)
+            domain = await repo.get_domain_by_id(domain_id)
+            if domain is None:
+                raise NotFoundError("Domain not found")
+            return domain
+
     @staticmethod
     def _purpose_status(records: list[DomainDnsRecord], *, purpose: str) -> str:
         scoped = [record for record in records if record.purpose == purpose and record.is_active]
@@ -410,6 +1076,33 @@ class DomainService:
         if all(record.verification_status == "verified" for record in scoped):
             return "verified"
         return "pending"
+
+    @staticmethod
+    def _build_domain_metadata(
+        *,
+        route53_hosted_zone_id: str | None,
+        cloudflare_zone_id: str | None,
+    ) -> dict[str, object]:
+        metadata: dict[str, object] = {}
+        if route53_hosted_zone_id and route53_hosted_zone_id.strip():
+            metadata["route53_hosted_zone_id"] = route53_hosted_zone_id.strip()
+        if cloudflare_zone_id and cloudflare_zone_id.strip():
+            metadata["cloudflare_zone_id"] = cloudflare_zone_id.strip()
+        return metadata
+
+    @staticmethod
+    def _domain_metadata_value(domain: Domain, key: str) -> object | None:
+        metadata = domain.metadata_json
+        if not isinstance(metadata, dict):
+            return None
+        return metadata.get(key)
+
+    @staticmethod
+    def _provisioning_status_from_domain(domain: Domain) -> DomainProvisioningStatus:
+        metadata = domain.metadata_json if isinstance(domain.metadata_json, dict) else {}
+        raw_payload = metadata.get(_PROVISIONING_METADATA_KEY)
+        payload = raw_payload if isinstance(raw_payload, dict) else None
+        return DomainProvisioningStatus.from_metadata(domain_id=domain.id, payload=payload)
 
     async def _write_audit_log(
         self,

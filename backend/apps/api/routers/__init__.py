@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from apps.api.routers import (
+    analytics,
     auth,
     campaigns,
     contacts,
@@ -21,6 +22,7 @@ api_router.include_router(health.router)
 api_router.include_router(auth.router)
 api_router.include_router(users.router)
 api_router.include_router(campaigns.router)
+api_router.include_router(analytics.router)
 api_router.include_router(domains.router)
 api_router.include_router(sender_profiles.router)
 api_router.include_router(contacts.router)

@@ -14,7 +14,7 @@ jobs:
         image: postgres:15
         env:
           POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: khalid123
+          POSTGRES_PASSWORD: ${{ secrets.CI_POSTGRES_PASSWORD }}
           POSTGRES_DB: dispatch
         ports:
           - 5432:5432
@@ -27,7 +27,7 @@ jobs:
       run:
         working-directory: backend
     env:
-      DATABASE_URL: postgresql+asyncpg://postgres:khalid123@localhost:5432/dispatch
+      DATABASE_URL: postgresql+asyncpg://postgres:${{ secrets.CI_POSTGRES_PASSWORD }}@localhost:5432/dispatch
       REDIS_URL: redis://localhost:6379/0
 
     steps:

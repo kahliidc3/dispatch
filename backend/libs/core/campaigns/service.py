@@ -14,12 +14,17 @@ from libs.core.auth.repository import AuthRepository
 from libs.core.auth.schemas import CurrentActor
 from libs.core.campaigns.models import Campaign, CampaignRun, Message
 from libs.core.campaigns.repository import CampaignRepository
+from libs.core.circuit_breaker.service import (
+    CircuitBreakerService,
+    get_circuit_breaker_service,
+)
 from libs.core.config import Settings, get_settings
 from libs.core.db.session import get_session_factory
 from libs.core.db.uow import UnitOfWork
 from libs.core.errors import ConflictError, NotFoundError, PermissionDeniedError, ValidationError
 from libs.core.logging import get_logger
 from libs.core.segments.service import SegmentService, get_segment_service
+from libs.core.throttle.token_bucket import DomainTokenBucket, get_domain_token_bucket
 from libs.ses_client.client import SesClient, SesSendEmailRequest, get_ses_client
 from libs.ses_client.errors import SesTerminalError
 
@@ -80,6 +85,9 @@ class MessageSendResult:
     ses_message_id: str | None = None
     error_code: str | None = None
     error_message: str | None = None
+    retry_after_seconds: int | None = None
+    domain_id: str | None = None
+    domain_name: str | None = None
 
 
 class CampaignService:
@@ -89,11 +97,15 @@ class CampaignService:
         *,
         ses_client: SesClient | None = None,
         segment_service: SegmentService | None = None,
+        token_bucket: DomainTokenBucket | None = None,
+        circuit_breaker_service: CircuitBreakerService | None = None,
     ) -> None:
         self._settings = settings
         self._session_factory = get_session_factory()
         self._ses_client = ses_client or get_ses_client()
         self._segment_service = segment_service or get_segment_service()
+        self._token_bucket = token_bucket or get_domain_token_bucket()
+        self._circuit_breaker_service = circuit_breaker_service or get_circuit_breaker_service()
         self._unsubscribe_serializer = URLSafeTimedSerializer(
             settings.secret_key,
             salt="dispatch-public-unsubscribe",
@@ -294,22 +306,29 @@ class CampaignService:
     async def enqueue_queued_messages(self, *, campaign_run_id: str) -> int:
         async with self._session_factory() as session:
             repo = CampaignRepository(session)
-            message_ids = await repo.list_queued_message_ids_for_run(campaign_run_id)
+            targets = await repo.list_queued_message_dispatch_targets_for_run(campaign_run_id)
 
-        if not message_ids:
+        if not targets:
             return 0
 
         from apps.workers.celery_app import celery_app
 
         queued_count = 0
-        for message_id in message_ids:
+        for target in targets:
             try:
-                celery_app.send_task("send.send_message", kwargs={"message_id": message_id})
+                celery_app.send_task(
+                    "send.send_message",
+                    kwargs={
+                        "message_id": target.message_id,
+                        "domain_id": target.domain_id,
+                        "domain_name": target.domain_name,
+                    },
+                )
             except Exception as exc:  # pragma: no cover - defensive logging path
                 logger.warning(
                     "campaigns.enqueue_message_failed",
                     campaign_run_id=campaign_run_id,
-                    message_id=message_id,
+                    message_id=target.message_id,
                     error=str(exc),
                 )
                 continue
@@ -327,7 +346,15 @@ class CampaignService:
             if message is None:
                 raise NotFoundError("Message not found")
 
-            if message.status != "queued":
+            if message.status not in {"queued", "paused"}:
+                return MessageSendResult(
+                    message_id=message.id,
+                    status=message.status,
+                    ses_message_id=message.ses_message_id,
+                    error_code=message.error_code,
+                    error_message=message.error_message,
+                )
+            if message.status == "paused" and message.error_code != "circuit_open":
                 return MessageSendResult(
                     message_id=message.id,
                     status=message.status,
@@ -340,10 +367,83 @@ class CampaignService:
             if campaign is not None and campaign.status != "running":
                 return MessageSendResult(
                     message_id=message.id,
-                    status="queued",
+                    status=message.status,
                     error_code="campaign_not_running",
                     error_message="Campaign is not running",
                 )
+
+            domain = await repo.get_domain_by_id(message.domain_id)
+            if domain is None:
+                self._fail_message(
+                    message,
+                    error_code="missing_domain",
+                    error_message="Domain not found for message",
+                )
+                return self._result_from_message(message)
+
+            sender_profile = await repo.get_sender_profile_by_id(message.sender_profile_id)
+            if sender_profile is None:
+                self._fail_message(
+                    message,
+                    error_code="missing_sender_profile",
+                    error_message="Sender profile not found for message",
+                )
+                return self._result_from_message(message)
+
+            breaker_scopes: list[tuple[str, str]] = [
+                ("domain", domain.id),
+                ("sender_profile", sender_profile.id),
+                ("account", self._circuit_breaker_service.account_scope_id()),
+            ]
+            if sender_profile.ip_pool_id is not None:
+                breaker_scopes.append(("ip_pool", sender_profile.ip_pool_id))
+
+            open_scope = await self._circuit_breaker_service.first_open_scope(scopes=breaker_scopes)
+            if open_scope is not None:
+                scope_type, scope_id = open_scope
+                message.status = "paused"
+                message.error_code = "circuit_open"
+                message.error_message = (
+                    f"Circuit breaker open for {scope_type}:{scope_id}; retry after cooldown"
+                )
+                message.sent_at = None
+                return MessageSendResult(
+                    message_id=message.id,
+                    status="paused",
+                    error_code="circuit_open",
+                    error_message=message.error_message,
+                    retry_after_seconds=self._circuit_breaker_service.recheck_delay_seconds,
+                    domain_id=domain.id,
+                    domain_name=domain.name,
+                )
+
+            if message.status == "paused":
+                message.status = "queued"
+                message.error_code = None
+                message.error_message = None
+
+            domain_rate_limit_per_hour = self._resolve_domain_rate_limit_per_hour(
+                domain.rate_limit_per_hour
+            )
+            if self._settings.app_env != "test":
+                throttle = await self._token_bucket.try_take(
+                    domain_id=domain.id,
+                    capacity_per_hour=domain_rate_limit_per_hour,
+                    requested_tokens=1,
+                )
+                if not throttle.allowed:
+                    retry_after = max(throttle.retry_after_seconds, 1)
+                    return MessageSendResult(
+                        message_id=message.id,
+                        status="queued",
+                        error_code="rate_limited_domain",
+                        error_message=(
+                            "Domain hourly send limit reached; message re-queued for retry"
+                        ),
+                        retry_after_seconds=retry_after,
+                        domain_id=domain.id,
+                        domain_name=domain.name,
+                    )
 
             claimed = await repo.claim_message_for_sending(message.id)
             if not claimed:
@@ -784,6 +884,11 @@ class CampaignService:
             error_code=message.error_code,
             error_message=message.error_message,
         )
+
+    def _resolve_domain_rate_limit_per_hour(self, rate_limit_per_hour: int | None) -> int:
+        if isinstance(rate_limit_per_hour, int) and rate_limit_per_hour > 0:
+            return rate_limit_per_hour
+        return max(self._settings.default_domain_hourly_rate_limit, 1)
 
     @staticmethod
     def _require_admin(actor: CurrentActor) -> None:

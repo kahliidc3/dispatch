@@ -5,11 +5,17 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Request, status
 
 from apps.api.deps import get_current_actor, get_domain_service_dep, require_admin
+from apps.workers.celery_app import celery_app
 from libs.core.auth.models import User
 from libs.core.auth.schemas import CurrentActor, MessageResponse
+from libs.core.domains.provisioning import DomainProvisioningStatus
 from libs.core.domains.schemas import (
     DomainCreateRequest,
     DomainListResponse,
+    DomainProvisionEnqueueResponse,
+    DomainProvisioningStatusResponse,
+    DomainProvisioningStepResponse,
+    DomainProvisionRequest,
     DomainResponse,
     DomainRetireRequest,
     DomainVerifyResponse,
@@ -39,6 +45,8 @@ async def create_domain(
         ses_region=payload.ses_region,
         default_configuration_set_name=payload.default_configuration_set_name,
         event_destination_sns_topic_arn=payload.event_destination_sns_topic_arn,
+        route53_hosted_zone_id=payload.route53_hosted_zone_id,
+        cloudflare_zone_id=payload.cloudflare_zone_id,
         ip_address=_client_ip(request),
         user_agent=request.headers.get("user-agent"),
     )
@@ -110,3 +118,67 @@ async def retire_domain(
         user_agent=request.headers.get("user-agent"),
     )
     return MessageResponse(message="Domain retired")
+
+
+@router.post(
+    "/{domain_id}/provision",
+    response_model=DomainProvisionEnqueueResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def provision_domain(
+    domain_id: str,
+    payload: DomainProvisionRequest,
+    request: Request,
+    actor: Annotated[CurrentActor, Depends(get_current_actor)],
+    _: Annotated[User, Depends(require_admin)],
+    domain_service: Annotated[DomainService, Depends(get_domain_service_dep)],
+) -> DomainProvisionEnqueueResponse:
+    result = await domain_service.enqueue_domain_provisioning(
+        actor=actor,
+        domain_id=domain_id,
+        force=payload.force,
+        ip_address=_client_ip(request),
+        user_agent=request.headers.get("user-agent"),
+    )
+    if result.status != "verified":
+        celery_app.send_task(
+            "domains.provision_domain",
+            kwargs={"domain_id": result.domain_id, "run_id": result.run_id},
+        )
+    return DomainProvisionEnqueueResponse(
+        domain_id=result.domain_id,
+        run_id=result.run_id,
+        status=result.status,
+    )
+
+
+@router.get(
+    "/{domain_id}/provisioning-status",
+    response_model=DomainProvisioningStatusResponse,
+)
+async def get_domain_provisioning_status(
+    domain_id: str,
+    actor: Annotated[CurrentActor, Depends(get_current_actor)],
+    _: Annotated[User, Depends(require_admin)],
+    domain_service: Annotated[DomainService, Depends(get_domain_service_dep)],
+) -> DomainProvisioningStatusResponse:
+    status_payload: DomainProvisioningStatus = await domain_service.get_domain_provisioning_status(
+        domain_id=domain_id
+    )
+    return DomainProvisioningStatusResponse(
+        domain_id=status_payload.domain_id,
+        run_id=status_payload.run_id,
+        status=status_payload.status,
+        reason_code=status_payload.reason_code,
+        started_at=status_payload.started_at,
+        completed_at=status_payload.completed_at,
+        steps=[
+            DomainProvisioningStepResponse(
+                name=step.name,
+                status=step.status,
+                at=step.at,
+                message=step.message,
+            )
+            for step in status_payload.steps
+        ],
+    )

@@ -62,7 +62,11 @@ CREATE TABLE domains (
     ses_region            TEXT         NOT NULL DEFAULT 'us-east-1',
     ses_identity_arn      TEXT,                          -- set after SES verification
     verification_status   TEXT         NOT NULL DEFAULT 'pending'
-                                       CHECK (verification_status IN ('pending','verified','failed','disabled')),
+                                       CHECK (
+                                           verification_status IN (
+                                               'pending','verified','failed','disabled','provisioning_failed'
+                                           )
+                                       ),
     spf_status            TEXT         NOT NULL DEFAULT 'pending',
     dkim_status           TEXT         NOT NULL DEFAULT 'pending',
     dmarc_status          TEXT         NOT NULL DEFAULT 'pending',
@@ -71,6 +75,7 @@ CREATE TABLE domains (
     reputation_status     TEXT         NOT NULL DEFAULT 'warming'
                                        CHECK (reputation_status IN ('warming','healthy','cooling','burnt','retired')),
     daily_send_limit      INT          NOT NULL DEFAULT 50,  -- auto-incremented during warmup
+    rate_limit_per_hour   INT          NOT NULL DEFAULT 150,
     lifetime_sends        BIGINT       NOT NULL DEFAULT 0,
     lifetime_bounces      BIGINT       NOT NULL DEFAULT 0,
     lifetime_complaints   BIGINT       NOT NULL DEFAULT 0,
@@ -422,7 +427,7 @@ CREATE TABLE messages (
     subject              TEXT         NOT NULL,
     ses_message_id       TEXT,                       -- returned by SES, globally unique
     status               TEXT         NOT NULL DEFAULT 'queued'
-                                      CHECK (status IN ('queued','sending','sent','delivered','bounced','complained','failed','skipped')),
+                                      CHECK (status IN ('queued','paused','sending','sent','delivered','bounced','complained','failed','skipped')),
     ml_spam_score        NUMERIC(3,2),
     personalization_score NUMERIC(3,2),
     headers              JSONB        NOT NULL DEFAULT '{}'::jsonb,

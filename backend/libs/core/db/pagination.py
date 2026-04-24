@@ -31,8 +31,10 @@ class OffsetPage[T]:
 
 
 def encode_cursor(created_at: datetime, record_id: str) -> str:
+    # Treat naive datetimes as UTC (SQLite returns naive UTC values).
+    utc_dt = created_at if created_at.tzinfo is not None else created_at.replace(tzinfo=UTC)
     payload = {
-        "created_at": created_at.astimezone(UTC).isoformat(),
+        "created_at": utc_dt.astimezone(UTC).isoformat(),
         "id": record_id,
     }
     raw = json.dumps(payload, separators=(",", ":")).encode("utf-8")

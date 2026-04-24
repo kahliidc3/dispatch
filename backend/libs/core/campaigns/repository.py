@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import UTC, datetime
 
 from sqlalchemy import and_, func, or_, select, update
@@ -12,6 +13,13 @@ from libs.core.segments.models import SegmentSnapshot
 from libs.core.sender_profiles.models import SenderProfile
 from libs.core.suppression.models import SuppressionEntry
 from libs.core.templates.models import TemplateVersion
+
+
+@dataclass(frozen=True, slots=True)
+class QueuedMessageDispatchTarget:
+    message_id: str
+    domain_id: str
+    domain_name: str
 
 
 class CampaignRepository:
@@ -220,6 +228,28 @@ class CampaignRepository:
         )
         result = await self.session.execute(stmt)
         return [str(item[0]) for item in result.all()]
+
+    async def list_queued_message_dispatch_targets_for_run(
+        self,
+        campaign_run_id: str,
+    ) -> list[QueuedMessageDispatchTarget]:
+        stmt = (
+            select(Message.id, Message.domain_id, Domain.name)
+            .join(SendBatch, Message.send_batch_id == SendBatch.id)
+            .join(Domain, Domain.id == Message.domain_id)
+            .where(SendBatch.campaign_run_id == campaign_run_id)
+            .where(Message.status == "queued")
+            .order_by(Message.id.asc())
+        )
+        result = await self.session.execute(stmt)
+        return [
+            QueuedMessageDispatchTarget(
+                message_id=str(row[0]),
+                domain_id=str(row[1]),
+                domain_name=str(row[2]),
+            )
+            for row in result.all()
+        ]
 
     async def get_message_by_id(self, message_id: str) -> Message | None:
         stmt = select(Message).where(Message.id == message_id)
