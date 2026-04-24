@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 from uuid import uuid4
 
-from sqlalchemy import JSON, BigInteger, DateTime, ForeignKey, Integer, String, Text, Uuid, func
+from sqlalchemy import JSON, BigInteger, DateTime, ForeignKey, Integer, Numeric, String, Text, Uuid, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from libs.core.db.base import Base
@@ -62,6 +62,8 @@ class Domain(Base):
     lifetime_sends: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
     lifetime_bounces: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
     lifetime_complaints: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    warmup_stage: Mapped[str] = mapped_column(String(20), nullable=False, default="none")
+    warmup_schedule: Mapped[list[int]] = mapped_column(JSON, nullable=False, default=list)
     warmup_started_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,

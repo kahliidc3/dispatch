@@ -10,6 +10,8 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from libs.core.analytics.service import AnalyticsService, reset_analytics_service_cache
 from libs.core.auth import models as auth_models  # noqa: F401
+from libs.core.postmaster import models as postmaster_models  # noqa: F401
+from libs.core.warmup.service import WarmupService, reset_warmup_service_cache
 from libs.core.auth.models import User
 from libs.core.auth.repository import AuthRepository
 from libs.core.auth.service import AuthService, InMemoryLoginAttemptStore, UserService
@@ -79,6 +81,7 @@ class AuthTestContext:
     suppression_service: SuppressionService
     template_service: TemplateService
     analytics_service: AnalyticsService
+    warmup_service: WarmupService
     mx_lookup: FakeMXLookupAdapter
     dns_adapter: FakeDNSVerificationAdapter
     session_factory: async_sessionmaker[AsyncSession]
@@ -128,6 +131,7 @@ async def auth_test_context(
     suppression_service = SuppressionService(settings)
     template_service = TemplateService(settings)
     analytics_service = AnalyticsService(settings)
+    warmup_service = WarmupService(settings)
     context = AuthTestContext(
         settings=settings,
         auth_service=auth_service,
@@ -141,6 +145,7 @@ async def auth_test_context(
         suppression_service=suppression_service,
         template_service=template_service,
         analytics_service=analytics_service,
+        warmup_service=warmup_service,
         mx_lookup=mx_lookup,
         dns_adapter=dns_adapter,
         session_factory=db_session.get_session_factory(),
@@ -153,6 +158,7 @@ async def auth_test_context(
         reset_circuit_breaker_service_cache()
         reset_settings_cache()
         reset_analytics_service_cache()
+        reset_warmup_service_cache()
 
 
 async def create_test_user(

@@ -39,6 +39,18 @@ celery_app.conf.update(
             "task": "circuit_breakers.evaluate",
             "schedule": 60.0,
         },
+        "warmup-compute-daily-budgets": {
+            "task": "warmup.compute_daily_budgets",
+            "schedule": 86400.0,
+        },
+        "warmup-check-graduation": {
+            "task": "warmup.check_graduation",
+            "schedule": 86400.0,
+        },
+        "warmup-fetch-postmaster-metrics": {
+            "task": "warmup.fetch_postmaster_metrics",
+            "schedule": 86400.0,
+        },
     },
     include=[
         "apps.workers.circuit_breaker_tasks",
@@ -47,5 +59,6 @@ celery_app.conf.update(
         "apps.workers.import_tasks",
         "apps.workers.metrics_tasks",
         "apps.workers.send_tasks",
+        "apps.workers.warmup_tasks",
     ],
 )

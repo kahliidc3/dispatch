@@ -14,6 +14,24 @@ from libs.core.logging import get_logger
 
 logger = get_logger("core.throttle")
 
+_DAILY_CAP_LUA = """
+local key = KEYS[1]
+local daily_limit = tonumber(ARGV[1])
+local ttl_seconds = tonumber(ARGV[2])
+
+local count = redis.call("INCR", key)
+if count == 1 then
+    redis.call("EXPIRE", key, ttl_seconds)
+end
+
+if count > daily_limit then
+    redis.call("DECR", key)
+    return {0, count - 1}
+end
+
+return {1, daily_limit - count}
+"""
+
 _TOKEN_BUCKET_LUA = """
 local key = KEYS[1]
 local capacity = tonumber(ARGV[1])
@@ -56,6 +74,12 @@ redis.call("EXPIRE", key, ttl_seconds)
 
 return {allowed, retry_after_seconds, math.floor(tokens)}
 """
+
+
+@dataclass(frozen=True, slots=True)
+class DailyCapDecision:
+    allowed: bool
+    tokens_remaining: int | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -152,7 +176,9 @@ class DomainTokenBucket:
         self._metrics = metrics or NoopTokenBucketMetricsRecorder()
         self._now_seconds = now_seconds or time.time
         self._script_sha: str | None = None
+        self._daily_cap_sha: str | None = None
         self._fallback_buckets: dict[str, _FallbackBucketState] = {}
+        self._fallback_daily_counters: dict[str, int] = {}
 
     async def try_take(
         self,
@@ -218,6 +244,74 @@ class DomainTokenBucket:
                 decision=decision,
                 source="redis_error",
             )
+
+    async def try_take_daily(
+        self,
+        *,
+        domain_id: str,
+        daily_limit: int,
+    ) -> DailyCapDecision:
+        """Atomically check and increment a domain's daily send counter.
+
+        Returns allowed=False once the counter reaches daily_limit. The counter
+        expires automatically at the configured TTL (one day) so it resets each day.
+        Only called for domains in warmup_stage='warming'.
+        """
+        if daily_limit <= 0:
+            return DailyCapDecision(allowed=True, tokens_remaining=None)
+
+        normalized = domain_id.strip().lower()
+        if not normalized:
+            return DailyCapDecision(allowed=False, tokens_remaining=None)
+
+        if self._settings.app_env == "test":
+            return self._try_take_daily_fallback(domain_id=normalized, daily_limit=daily_limit)
+
+        try:
+            return await self._try_take_daily_redis(
+                domain_id=normalized, daily_limit=daily_limit
+            )
+        except Exception as exc:
+            logger.warning(
+                "throttle.daily_cap_redis_error",
+                domain_id=normalized,
+                error=str(exc),
+            )
+            return DailyCapDecision(allowed=False, tokens_remaining=None)
+
+    def _try_take_daily_fallback(
+        self, *, domain_id: str, daily_limit: int
+    ) -> DailyCapDecision:
+        key = f"daily:{domain_id}"
+        current = self._fallback_daily_counters.get(key, 0)
+        if current >= daily_limit:
+            return DailyCapDecision(allowed=False, tokens_remaining=0)
+        self._fallback_daily_counters[key] = current + 1
+        return DailyCapDecision(allowed=True, tokens_remaining=daily_limit - (current + 1))
+
+    async def _try_take_daily_redis(
+        self, *, domain_id: str, daily_limit: int
+    ) -> DailyCapDecision:
+        if self._daily_cap_sha is None:
+            self._daily_cap_sha = await self._redis_client.script_load(_DAILY_CAP_LUA)
+
+        from datetime import UTC, datetime
+
+        today = datetime.now(UTC).strftime("%Y-%m-%d")
+        key = f"throttle:daily:{domain_id}:{today}"
+        ttl = self._settings.throttle_bucket_ttl_seconds
+        raw = await self._redis_client.evalsha(
+            self._daily_cap_sha, 1, key, str(daily_limit), str(ttl)
+        )
+        if not isinstance(raw, list) or len(raw) != 2:
+            raise RuntimeError("Unexpected daily cap Lua response")
+        allowed = int(raw[0]) == 1
+        remaining = int(raw[1])
+        return DailyCapDecision(allowed=allowed, tokens_remaining=max(remaining, 0))
+
+    def reset_daily_counters(self) -> None:
+        """Test helper to clear all in-memory daily counters."""
+        self._fallback_daily_counters.clear()
 
     @staticmethod
     def queue_key_for_domain(domain_id: str) -> str:

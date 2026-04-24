@@ -9,7 +9,8 @@
       "Bash(.venv/Scripts/python.exe -m pytest tests/unit/core/test_db_base_and_pagination.py -q)",
       "Bash(.venv/Scripts/python.exe -m pytest tests/unit/ -q)",
       "Bash(.venv/Scripts/python.exe -m pytest tests/unit/ -q --cache-clear)",
-      "Bash(.venv/Scripts/python.exe -m pytest tests/unit/core/suppression/test_service.py -q)"
+      "Bash(.venv/Scripts/python.exe -m pytest tests/unit/core/suppression/test_service.py -q)",
+      "Bash(python -c ' *)"
     ],
     "additionalDirectories": [
       "c:\\Users\\khali\\Desktop\\Emailing Project"

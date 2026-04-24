@@ -422,6 +422,28 @@ class CampaignService:
                 message.error_code = None
                 message.error_message = None
 
+            if domain.warmup_stage == "warming" and domain.daily_send_limit > 0:
+                daily_decision = await self._token_bucket.try_take_daily(
+                    domain_id=domain.id,
+                    daily_limit=domain.daily_send_limit,
+                )
+                if not daily_decision.allowed:
+                    now = datetime.now(UTC)
+                    seconds_until_midnight = (
+                        (23 - now.hour) * 3600
+                        + (59 - now.minute) * 60
+                        + (60 - now.second)
+                    )
+                    return MessageSendResult(
+                        message_id=message.id,
+                        status="queued",
+                        error_code="daily_cap_reached",
+                        error_message="Domain daily warmup budget exhausted; retry tomorrow",
+                        retry_after_seconds=max(seconds_until_midnight, 3600),
+                        domain_id=domain.id,
+                        domain_name=domain.name,
+                    )
+
             domain_rate_limit_per_hour = self._resolve_domain_rate_limit_per_hour(
                 domain.rate_limit_per_hour
             )

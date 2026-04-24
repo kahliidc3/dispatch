@@ -233,3 +233,89 @@ async def test_worker_provision_domain_flow_failure_sets_provisioning_failed(
     status = await service.get_domain_provisioning_status(domain_id=domain_id)
     assert status.status == "failed"
     assert status.reason_code == "external_service_error"
+
+
+@pytest.mark.parametrize(
+    "failing_step",
+    [
+        "create_ses_identity",
+        "ensure_configuration_set",
+        "configure_mail_from",
+        "sync_dns_records",
+        "apply_dns_records",
+        "poll_ses_verification",
+        "verify_dns_state",
+    ],
+)
+@pytest.mark.asyncio
+async def test_worker_provision_domain_flow_chaos_step_failures(
+    failing_step: str,
+    auth_test_context: AuthTestContext,
+    auth_user_factory: UserFactory,
+    monkeypatch: Any,
+) -> None:
+    actor = await _create_admin_actor(auth_user_factory)
+    domain_id = await _create_cloudflare_domain(auth_test_context, actor=actor)
+
+    fake_dns = _FakeDnsProvisioner()
+    fake_ses = _FakeSesProvisioner(polls_until_verified=1)
+    service = _TestDomainService(
+        auth_test_context.settings.model_copy(
+            update={
+                "domain_provisioning_poll_interval_seconds": 1,
+                "domain_provisioning_timeout_seconds": 30,
+            }
+        ),
+        dns_verifier=auth_test_context.dns_adapter,
+        ses_provisioner=fake_ses,
+        dns_provisioner=fake_dns,
+        sleep=lambda _seconds: asyncio.sleep(0),
+    )
+    original_run_step = service._run_provisioning_step
+
+    async def _inject_failure[T](
+        *,
+        domain_id: str,
+        run_id: str,
+        step_name: str,
+        step_fn: Any,
+    ) -> T:
+        if step_name == failing_step:
+            async def _always_fail() -> Any:
+                raise ExternalServiceError(f"Injected failure at step: {step_name}")
+
+            return await original_run_step(
+                domain_id=domain_id,
+                run_id=run_id,
+                step_name=step_name,
+                step_fn=_always_fail,
+            )
+        return await original_run_step(
+            domain_id=domain_id,
+            run_id=run_id,
+            step_name=step_name,
+            step_fn=step_fn,
+        )
+
+    monkeypatch.setattr(service, "_run_provisioning_step", _inject_failure)
+
+    enqueue = await service.enqueue_domain_provisioning(
+        actor=actor,
+        domain_id=domain_id,
+        force=False,
+        ip_address=None,
+        user_agent=None,
+    )
+    monkeypatch.setattr(domain_tasks, "get_domain_service", lambda: service)
+
+    result = domain_tasks.provision_domain(domain_id, enqueue.run_id)
+    assert result["status"] == "failed"
+    assert result["reason_code"] == "external_service_error"
+
+    refreshed = await service.get_domain(domain_id)
+    assert refreshed.domain.verification_status == "provisioning_failed"
+    status = await service.get_domain_provisioning_status(domain_id=domain_id)
+    assert status.status == "failed"
+    assert status.reason_code == "external_service_error"
+    assert any(step.name == failing_step and step.status == "running" for step in status.steps)
+    assert any(step.name == "failed" and step.status == "failed" for step in status.steps)

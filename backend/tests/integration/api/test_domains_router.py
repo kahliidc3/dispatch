@@ -96,3 +96,66 @@ async def test_domains_router_create_verify_retire_roundtrip(
     )
     assert retire_response.status_code == 200
     assert retire_response.json()["message"] == "Domain retired"
+
+
+@pytest.mark.asyncio
+async def test_domains_router_provisioning_endpoints_enqueue_and_status(
+    auth_client: AsyncClient,
+    auth_user_factory: UserFactory,
+    monkeypatch: Any,
+) -> None:
+    await auth_user_factory(
+        email="admin-provision@example.com",
+        password="correct-password-value",
+        role="admin",
+    )
+
+    login_response = await auth_client.post(
+        "/auth/login",
+        json={"email": "admin-provision@example.com", "password": "correct-password-value"},
+    )
+    assert login_response.status_code == 200
+
+    create_response = await auth_client.post(
+        "/domains",
+        json={
+            "name": "provision-api.dispatch.test",
+            "dns_provider": "cloudflare",
+            "parent_domain": "dispatch.test",
+            "ses_region": "us-east-1",
+            "default_configuration_set_name": "api-default",
+        },
+    )
+    assert create_response.status_code == 201
+    domain_id = create_response.json()["id"]
+
+    task_calls: list[dict[str, Any]] = []
+
+    def _fake_send_task(task_name: str, *, kwargs: dict[str, str]) -> None:
+        task_calls.append({"task_name": task_name, "kwargs": kwargs})
+
+    monkeypatch.setattr("apps.api.routers.domains.celery_app.send_task", _fake_send_task)
+
+    provision_response = await auth_client.post(
+        f"/domains/{domain_id}/provision",
+        json={"force": False},
+    )
+    assert provision_response.status_code == 202
+    provision_payload = provision_response.json()
+    assert provision_payload["domain_id"] == domain_id
+    assert provision_payload["status"] == "queued"
+    assert len(task_calls) == 1
+    assert task_calls[0]["task_name"] == "domains.provision_domain"
+    assert task_calls[0]["kwargs"]["domain_id"] == domain_id
+    assert task_calls[0]["kwargs"]["run_id"] == provision_payload["run_id"]
+
+    status_response = await auth_client.get(f"/domains/{domain_id}/provisioning-status")
+    assert status_response.status_code == 200
+    status_payload = status_response.json()
+    assert status_payload["domain_id"] == domain_id
+    assert status_payload["run_id"] == provision_payload["run_id"]
+    assert status_payload["status"] == "queued"
+    assert any(
+        step["name"] == "queued" and step["status"] == "queued"
+        for step in status_payload["steps"]
+    )
