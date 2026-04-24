@@ -56,6 +56,12 @@ export const apiEndpoints = {
   },
   segments: {
     list: "/segments",
+    create: "/segments",
+    byId: (id: string) => `/segments/${id}`,
+    update: (id: string) => `/segments/${id}`,
+    delete: (id: string) => `/segments/${id}`,
+    duplicate: (id: string) => `/segments/${id}/duplicate`,
+    preview: (id: string) => `/segments/${id}/preview`,
     evaluate: (id: string) => `/segments/${id}/evaluate`,
   },
   templates: {

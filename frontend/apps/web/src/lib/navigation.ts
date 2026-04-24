@@ -53,6 +53,12 @@ const dashboardNavigation: NavigationSection[] = [
         keywords: ["groups", "segments", "contacts", "membership"],
       },
       {
+        href: "/segments",
+        label: "Segments",
+        description: "Build query-based audiences with a visual predicate builder.",
+        keywords: ["filter", "dsl", "audience", "query", "builder"],
+      },
+      {
         href: "/suppression",
         label: "Suppression",
         description: "Review suppression state and lifecycle placeholders.",
