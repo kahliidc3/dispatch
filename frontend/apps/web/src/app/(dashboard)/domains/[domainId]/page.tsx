@@ -1,0 +1,173 @@
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { Badge } from "@/components/ui/badge";
+import { SectionPanel } from "@/components/patterns/section-panel";
+import { formatTimestamp } from "@/lib/formatters";
+import {
+  getDomainDetail,
+  getThrottleStatus,
+  getDenialEvents,
+} from "../_lib/domains-queries";
+import { getWarmupStatus, getPostmasterData } from "../_lib/warmup-queries";
+import { CircuitBreakerBadge } from "@/components/shared/circuit-breaker-badge";
+import { DnsRecords } from "../_components/dns-records";
+import { DomainRetireButton } from "../_components/domain-retire-button";
+import { VerifyButton } from "../_components/verify-button";
+import { ThroughputTab } from "./_components/throughput-tab";
+import { WarmupTab } from "./_components/warmup-tab";
+import { ReputationTab } from "./_components/reputation-tab";
+
+const statusVariant = {
+  pending: "muted",
+  verifying: "warning",
+  verified: "success",
+  cooling: "warning",
+  burnt: "danger",
+  retired: "outline",
+} as const;
+
+type DomainDetailPageProps = {
+  params: Promise<{ domainId: string }>;
+  searchParams: Promise<{ tab?: string }>;
+};
+
+export default async function DomainDetailPage({
+  params,
+  searchParams,
+}: DomainDetailPageProps) {
+  const { domainId } = await params;
+  const { tab = "overview" } = await searchParams;
+
+  const domain = getDomainDetail(domainId);
+  if (!domain) notFound();
+
+  const throttle = getThrottleStatus(domainId);
+  const denialEvents = getDenialEvents(domainId);
+  const warmup = getWarmupStatus(domainId);
+  const postmaster = getPostmasterData(domainId);
+
+  const tabs = [
+    { key: "overview", label: "Overview" },
+    { key: "dns", label: "DNS records" },
+    { key: "throughput", label: "Throughput" },
+    { key: "warmup", label: "Warmup" },
+    { key: "reputation", label: "Reputation" },
+  ];
+
+  return (
+    <div className="page-stack">
+      <header className="page-header">
+        <div>
+          <p className="text-sm text-text-muted">
+            <Link href="/domains" className="hover:underline">
+              Domains
+            </Link>{" "}
+            / {domain.name}
+          </p>
+          <h1 className="page-title">{domain.name}</h1>
+        </div>
+        <div className="page-actions">
+          <VerifyButton domainId={domain.id} initialStatus={domain.status} />
+          <DomainRetireButton domainId={domain.id} status={domain.status} />
+        </div>
+      </header>
+
+      <nav aria-label="Domain detail tabs">
+        <div className="flex border-b border-border">
+          {tabs.map((t) => (
+            <Link
+              key={t.key}
+              href={`/domains/${domainId}?tab=${t.key}`}
+              aria-current={tab === t.key ? "page" : undefined}
+              className={`inline-flex items-center border-b-2 px-3 py-2 text-sm transition-colors ${
+                tab === t.key
+                  ? "border-primary text-foreground"
+                  : "border-transparent text-text-muted hover:text-foreground"
+              }`}
+            >
+              {t.label}
+            </Link>
+          ))}
+        </div>
+      </nav>
+
+      {tab === "overview" && (
+        <SectionPanel title="Overview">
+          <div className="summary-list">
+            <div className="summary-row">
+              <span className="text-sm font-medium">Status</span>
+              <Badge variant={statusVariant[domain.status]}>{domain.status}</Badge>
+            </div>
+            <div className="summary-row">
+              <span className="text-sm font-medium">Circuit breaker</span>
+              <CircuitBreakerBadge
+                scope="domain"
+                entityId={domain.id}
+                state={domain.breaker}
+              />
+            </div>
+            {warmup && (
+              <div className="summary-row">
+                <span className="text-sm font-medium">Warmup</span>
+                <span className="text-sm text-text-muted">
+                  {warmup.currentDay === 0
+                    ? "Not started"
+                    : warmup.graduatedAt
+                      ? "Graduated"
+                      : `Day ${warmup.currentDay} / ${warmup.totalDays}`}
+                </span>
+              </div>
+            )}
+            <div className="summary-row">
+              <span className="text-sm font-medium">Created</span>
+              <span className="text-sm text-text-muted">
+                {formatTimestamp(domain.createdAt)}
+              </span>
+            </div>
+            <div className="summary-row">
+              <span className="text-sm font-medium">Last updated</span>
+              <span className="text-sm text-text-muted">
+                {formatTimestamp(domain.updatedAt)}
+              </span>
+            </div>
+          </div>
+        </SectionPanel>
+      )}
+
+      {tab === "dns" && (
+        <SectionPanel>
+          <DnsRecords records={domain.dnsRecords} />
+        </SectionPanel>
+      )}
+
+      {tab === "throughput" && (
+        <SectionPanel title="Throughput">
+          <ThroughputTab
+            domainId={domainId}
+            throttle={throttle}
+            denialEvents={denialEvents}
+            isAdmin={true}
+          />
+        </SectionPanel>
+      )}
+
+      {tab === "warmup" && (
+        <SectionPanel title="Warmup schedule">
+          {warmup ? (
+            <WarmupTab domainId={domainId} warmup={warmup} />
+          ) : (
+            <p className="text-sm text-text-muted">
+              No warmup schedule found for this domain.
+            </p>
+          )}
+        </SectionPanel>
+      )}
+
+      {tab === "reputation" && (
+        <SectionPanel title="Google Postmaster">
+          <ReputationTab domainId={domainId} data={postmaster} />
+        </SectionPanel>
+      )}
+    </div>
+  );
+}

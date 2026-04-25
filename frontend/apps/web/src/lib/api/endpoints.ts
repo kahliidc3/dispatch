@@ -1,0 +1,123 @@
+export const apiEndpoints = {
+  internal: {
+    health: "/api/health",
+    session: "/api/session",
+  },
+  auth: {
+    login: "/auth/login",
+    logout: "/auth/logout",
+    verifyMfa: "/auth/mfa/verify",
+    apiKeys: "/auth/api-keys",
+    apiKeyById: (id: string) => `/auth/api-keys/${id}`,
+  },
+  users: {
+    list: "/users",
+    self: "/users/me",
+    byId: (id: string) => `/users/${id}`,
+    resetMfa: (id: string) => `/users/${id}/reset-mfa`,
+  },
+  domains: {
+    list: "/domains",
+    byId: (id: string) => `/domains/${id}`,
+    create: "/domains",
+    verify: (id: string) => `/domains/${id}/verify`,
+    health: (id: string) => `/domains/${id}/health`,
+    retire: (id: string) => `/domains/${id}/retire`,
+    provision: (id: string) => `/domains/${id}/provision`,
+    provisioningAttempt: (id: string) => `/domains/${id}/provision`,
+    zones: (provider: string) => `/domains/zones?provider=${provider}`,
+    warmup: (id: string) => `/domains/${id}/warmup`,
+    warmupExtend: (id: string) => `/domains/${id}/warmup/extend`,
+    postmaster: (id: string) => `/domains/${id}/postmaster`,
+    postmasterConnect: (id: string) => `/domains/${id}/postmaster/connect`,
+  },
+  ops: {
+    provisioning: "/ops/provisioning",
+  },
+  senderProfiles: {
+    list: "/sender-profiles",
+    byId: (id: string) => `/sender-profiles/${id}`,
+    create: "/sender-profiles",
+    delete: (id: string) => `/sender-profiles/${id}`,
+  },
+  contacts: {
+    list: "/contacts",
+    byId: (id: string) => `/contacts/${id}`,
+    create: "/contacts",
+    delete: (id: string) => `/contacts/${id}`,
+    unsubscribe: (id: string) => `/contacts/${id}/unsubscribe`,
+    bulkUnsubscribe: "/contacts/bulk-unsubscribe",
+    bulkImport: "/contacts/bulk-import",
+    importJob: (id: string) => `/contacts/bulk-import/${id}`,
+    importJobErrors: (id: string) => `/contacts/bulk-import/${id}/errors`,
+  },
+  lists: {
+    list: "/lists",
+    byId: (id: string) => `/lists/${id}`,
+    create: "/lists",
+    delete: (id: string) => `/lists/${id}`,
+    members: (id: string) => `/lists/${id}/members`,
+    addMember: (id: string) => `/lists/${id}/members`,
+    removeMember: (listId: string, contactId: string) =>
+      `/lists/${listId}/members/${contactId}`,
+  },
+  publicUnsubscribe: {
+    confirm: "/unsubscribe",
+  },
+  segments: {
+    list: "/segments",
+    create: "/segments",
+    byId: (id: string) => `/segments/${id}`,
+    update: (id: string) => `/segments/${id}`,
+    delete: (id: string) => `/segments/${id}`,
+    duplicate: (id: string) => `/segments/${id}/duplicate`,
+    preview: (id: string) => `/segments/${id}/preview`,
+    evaluate: (id: string) => `/segments/${id}/evaluate`,
+  },
+  templates: {
+    list: "/templates",
+    create: "/templates",
+    byId: (id: string) => `/templates/${id}`,
+    versions: (id: string) => `/templates/${id}/versions`,
+    version: (id: string, ver: number) => `/templates/${id}/versions/${ver}`,
+    publishVersion: (id: string, version: string) =>
+      `/templates/${id}/versions/${version}/publish`,
+    mergeTags: "/templates/merge-tags",
+  },
+  campaigns: {
+    list: "/campaigns",
+    create: "/campaigns",
+    byId: (id: string) => `/campaigns/${id}`,
+    update: (id: string) => `/campaigns/${id}`,
+    preflight: (id: string) => `/campaigns/${id}/preflight`,
+    launch: (id: string) => `/campaigns/${id}/launch`,
+    pause: (id: string) => `/campaigns/${id}/pause`,
+    resume: (id: string) => `/campaigns/${id}/resume`,
+    cancel: (id: string) => `/campaigns/${id}/cancel`,
+    analytics: (id: string) => `/campaigns/${id}/analytics`,
+    messages: (id: string) => `/campaigns/${id}/messages`,
+    messageById: (campaignId: string, messageId: string) =>
+      `/campaigns/${campaignId}/messages/${messageId}`,
+    bulkRequeue: (id: string) => `/campaigns/${id}/messages/requeue`,
+    messageRequeue: (campaignId: string, messageId: string) =>
+      `/campaigns/${campaignId}/messages/${messageId}/requeue`,
+  },
+  suppression: {
+    list: "/suppression",
+    create: "/suppression",
+    bulkImport: "/suppression/bulk-import",
+    export: "/suppression/export",
+    byEmail: (email: string) => `/suppression/${encodeURIComponent(email)}`,
+    remove: (email: string) => `/suppression/${encodeURIComponent(email)}`,
+    reveal: (id: string) => `/suppression/${id}/reveal`,
+  },
+  analytics: {
+    overview: "/analytics/overview",
+    domains: "/analytics/domains",
+    reputation: "/analytics/reputation",
+  },
+} as const;
+
+export function isInternalApiRoute(path: string) {
+  return path.startsWith("/api/");
+}
