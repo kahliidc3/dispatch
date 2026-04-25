@@ -1,0 +1,114 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:15.8
+    container_name: dispatch-postgres
+    environment:
+      POSTGRES_DB: dispatch
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: khalid123
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d dispatch"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7.2.5
+    container_name: dispatch-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  localstack:
+    image: localstack/localstack:3.8.1
+    container_name: dispatch-localstack
+    environment:
+      SERVICES: ses,sns
+      AWS_DEFAULT_REGION: us-east-1
+    ports:
+      - "4566:4566"
+    volumes:
+      - localstack_data:/var/lib/localstack
+
+  mailhog:
+    image: mailhog/mailhog:v1.0.1
+    container_name: dispatch-mailhog
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
+  api:
+    build:
+      context: .
+      dockerfile: infra/Dockerfile.api
+    container_name: dispatch-api
+    env_file:
+      - .env.example
+    command: uvicorn apps.api.main:app --host 0.0.0.0 --port 8000 --reload
+    volumes:
+      - ./:/app
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  webhook:
+    build:
+      context: .
+      dockerfile: infra/Dockerfile.webhook
+    container_name: dispatch-webhook
+    env_file:
+      - .env.example
+    command: uvicorn apps.webhook.main:app --host 0.0.0.0 --port 8001 --reload
+    volumes:
+      - ./:/app
+    ports:
+      - "8001:8001"
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: .
+      dockerfile: infra/Dockerfile.worker
+    container_name: dispatch-worker
+    env_file:
+      - .env.example
+    command: celery -A apps.workers.celery_app worker -l info
+    volumes:
+      - ./:/app
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  beat:
+    build:
+      context: .
+      dockerfile: infra/Dockerfile.worker
+    container_name: dispatch-beat
+    env_file:
+      - .env.example
+    command: celery -A apps.workers.celery_app beat -l info
+    volumes:
+      - ./:/app
+    depends_on:
+      redis:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  localstack_data:

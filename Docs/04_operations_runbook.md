@@ -298,7 +298,133 @@ Investigate why the rate limiter did not hold. Common causes:
 
 ---
 
-## 5. Standard Operational Procedures
+## 5. Domain Warmup Procedures
+
+### 5.0 Warmup Overview
+
+Every new sending domain goes through a 30-day warmup schedule before reaching full volume. Jumping to full volume on day one damages inbox placement for weeks. The warmup engine enforces a per-domain **daily send budget** that advances automatically each night via the `warmup.compute_daily_budgets` Celery task.
+
+| Stage | Meaning | Daily cap enforced? |
+|---|---|---|
+| `none` | Domain just created/verified | No |
+| `warming` | Ramp in progress | Yes — reads `daily_send_limit` |
+| `graduated` | Ramp complete, clean metrics | No (only hourly token bucket) |
+
+Warmup thresholds (tighter than normal circuit-breaker levels):
+
+| Metric | Warmup threshold | Normal threshold |
+|---|---|---|
+| Bounce rate | 0.5% / 24h | 1.5% / 24h |
+| Complaint rate | 0.02% / 24h | 0.05% / 24h |
+
+If either threshold is breached on a warming domain, the nightly `warmup.check_graduation` task extends the schedule by 7 days instead of graduating.
+
+---
+
+### 5.0.1 Starting a New Domain on a Warmup Schedule
+
+When a new domain is provisioned and verified, enrol it in the warmup schedule immediately — never send full volume on day one.
+
+**Via admin script:**
+```python
+import asyncio
+from libs.core.warmup.service import WarmupService
+from libs.core.config import get_settings
+
+async def main():
+    svc = WarmupService(get_settings())
+    domain = await svc.start_warmup(domain_id="<domain-id>")
+    print(f"Warmup started: day-1 budget = {domain.daily_send_limit}")
+
+asyncio.run(main())
+```
+
+**With a custom schedule** (e.g., smaller campaign, 10-day ramp):
+```python
+await svc.start_warmup(
+    domain_id="<domain-id>",
+    schedule_volumes=[50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000, 40000],
+)
+```
+
+What happens:
+- `warmup_stage` → `"warming"`
+- `warmup_schedule` set to the provided volumes
+- `warmup_started_at` set to now
+- `daily_send_limit` set to day-1 volume (50 on the default schedule)
+
+---
+
+### 5.0.2 Extending a Warmup by Hand
+
+Use this when a bounce/complaint spike occurred and you need more conservative ramp time, or a compliance hold is in effect.
+
+```python
+import asyncio
+from libs.core.warmup.service import WarmupService
+from libs.core.config import get_settings
+
+async def main():
+    svc = WarmupService(get_settings())
+    domain = await svc.extend_warmup(domain_id="<domain-id>", extra_days=7)
+    print(f"Schedule now {len(domain.warmup_schedule)} days total")
+
+asyncio.run(main())
+```
+
+The extra days repeat the final schedule volume, giving the domain more time at its current cap before graduation is evaluated again.
+
+---
+
+### 5.0.3 Manually Graduating a Domain
+
+Graduation is automatic after `GRADUATION_CLEAN_DAYS` (3) days past the schedule end with clean metrics. To override:
+
+```python
+import asyncio
+from datetime import UTC, datetime
+from libs.core.db.session import get_session_factory
+from libs.core.db.uow import UnitOfWork
+from libs.core.warmup.repository import WarmupRepository
+
+async def main():
+    async with UnitOfWork(get_session_factory()) as uow:
+        repo = WarmupRepository(uow.require_session())
+        await repo.update_domain_warmup(
+            domain_id="<domain-id>",
+            values={
+                "warmup_stage": "graduated",
+                "warmup_completed_at": datetime.now(UTC),
+                "daily_send_limit": 0,
+            },
+        )
+
+asyncio.run(main())
+```
+
+After graduation `daily_send_limit = 0` is treated as "no daily cap" — only the hourly token bucket applies.
+
+---
+
+### 5.0.4 Google Postmaster Tools Setup
+
+1. Log in to [Google Postmaster Tools](https://postmaster.google.com/) with the platform's Google account and verify each sending domain there.
+2. Create a Service Account in Google Cloud Console with the **Gmail Postmaster Tools API** scope enabled.
+3. Download the JSON key and store it in AWS Secrets Manager:
+   ```bash
+   aws secretsmanager create-secret \
+     --name dispatch/postmaster/service-account-key \
+     --secret-string "$(cat postmaster-sa-key.json)"
+   ```
+4. Set `POSTMASTER_SERVICE_ACCOUNT_SECRET_NAME=dispatch/postmaster/service-account-key` in the workers' environment.
+
+The `warmup.fetch_postmaster_metrics` Celery task runs daily and persists results to `postmaster_metrics`. These surface on the domain analytics dashboard alongside internal rolling metrics.
+
+**Token expiry:** If `postmaster.fetch_failed` log events appear, check that the service account key in Secrets Manager is current and the domain is still enrolled in Postmaster Tools (they expire after 90 days of inactivity).
+
+---
+
+## 6. Standard Operational Procedures
 
 ### 5.1 Deploying a New Release
 

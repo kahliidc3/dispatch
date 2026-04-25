@@ -21,12 +21,15 @@ pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-Always run backend commands from within the activated venv — never install packages globally.
+All backend commands run from the `backend/` directory (where `pyproject.toml` and `Makefile` live). Always activate the venv first — never install packages globally.
 
 ```bash
 make dev                          # Start full local environment (Docker Compose)
 alembic upgrade head              # Apply DB migrations
 alembic revision --autogenerate -m "<description>"  # Generate migration
+
+ruff check .                      # Lint (CI-enforced)
+mypy apps libs tests              # Type-check (CI-enforced, strict mode)
 
 pytest tests/unit/                # Run unit tests only
 pytest tests/integration/         # Run integration tests (requires Postgres + Redis)
@@ -81,6 +84,10 @@ Every domain in `libs/core/<domain>/` has exactly four files:
 - `repository.py` — Pure CRUD; no business logic
 
 FastAPI routes call service methods only — never the ORM directly. Workers follow the same pattern and construct services the same way routes do.
+
+Every service is exposed via a module-level `get_<domain>_service()` factory decorated with `@lru_cache(maxsize=1)`. Tests call the paired `reset_<domain>_service_cache()` in teardown to avoid singleton leakage between test cases.
+
+External dependencies (SES, DNS, MX lookup) are injected via `Protocol` interfaces. Service `__init__` methods accept them as `... | None = None` and fall back to a `Noop*` default — so production callers need no arguments and tests inject fakes. Result objects are `@dataclass(slots=True)` value types, not raw dicts.
 
 ### Celery Queue Architecture
 
@@ -140,12 +147,19 @@ Frontend lives at `apps/web/` and uses Next.js 16 App Router. Key conventions:
 - **Data fetching in routes:** sensitive/credentialed fetches happen in Server Components. Use `loading.tsx` and `error.tsx` at the route-segment level.
 - **`app/api/` route handlers** are only for frontend-adjacent concerns (health, session, BFF needs) — not duplicates of backend API routes.
 
+## Code Conventions
+
+- Every `.py` file begins with `from __future__ import annotations`.
+- `ruff` + `mypy --strict` must pass before merging. Run them from `backend/` — same as CI.
+- Prefer keyword-only arguments (`*,` separator) on service and repository method signatures to prevent positional mistakes at call sites.
+
 ## Testing Approach
 
-- Unit tests (70%): pure functions, validators, no DB/network
+- Unit tests (70%): pure service logic; use `sqlite+aiosqlite` via pytest `tmp_path` — no Postgres, no Redis. The `auth_test_context` fixture in `tests/conftest.py` wires everything up.
 - Integration tests (25%): real Postgres in Docker, real Redis; SES mocked at contract level
 - E2E tests (5%): full request through FastAPI → Celery → fake SES → webhook via LocalStack
 - Test DB wiped between each test via transaction rollback; no shared state
+- Fake adapters (e.g. `FakeSesTransport`, `FakeDNSVerificationAdapter`) live in `tests/fixtures/` and `tests/conftest.py`; use them instead of `unittest.mock`.
 
 ## Sprint Rule Compliance
 
