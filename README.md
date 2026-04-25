@@ -225,6 +225,8 @@ Full architecture and design documentation lives in [`Docs/`](Docs/).
 | [19_backend_file_structure.md](Docs/19_backend_file_structure.md) | Backend folder/file blueprint |
 | [20_frontend_file_structure.md](Docs/20_frontend_file_structure.md) | Frontend folder/file blueprint |
 | [21_domain_model.md](Docs/21_domain_model.md) | Business domain model — the contract that aligns backend, frontend, and database |
+| [22_aws_deployment_and_configuration.md](Docs/22_aws_deployment_and_configuration.md) | AWS deployment and configuration guide |
+| [23_project_technical_explanation.md](Docs/23_project_technical_explanation.md) | Brief technical explanation of the whole project |
 
 Sprint plans: [Docs/backend_sprints/](Docs/backend_sprints/) · [Docs/frontend_sprints/](Docs/frontend_sprints/)
 
